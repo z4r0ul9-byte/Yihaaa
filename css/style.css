@@ -1,6 +1,6 @@
 /*
   style.css
-  Tujuan     : Styling mobile-first, tanpa kotak tambahan di bawah.
+  Tujuan     : Styling UI + Filter Kamera (Monochrome/Cyberpunk).
 */
 
 * { box-sizing: border-box; }
@@ -42,21 +42,29 @@ body { min-height: 100dvh; display: flex; flex-direction: column; }
 .stage video, .stage canvas {
   position: absolute; inset: 0; width: 100%; height: 100%; display: block;
 }
-.stage video { object-fit: cover; z-index: 1; }
+
+.stage video { 
+  object-fit: cover; 
+  z-index: 1; 
+  /* FILTER KAMERA: Bikin background gelap, monokrom, dan kontras tinggi */
+  filter: grayscale(100%) brightness(0.4) contrast(1.3) sepia(30%) hue-rotate(180deg);
+}
+
 .stage canvas { object-fit: cover; pointer-events: none; z-index: 2; }
 
 .hud {
   position: absolute; top: 10px; left: 10px;
-  background: rgba(11, 11, 14, 0.9); color: #e6e6ea;
+  background: rgba(11, 11, 14, 0.85); color: #e6e6ea;
   padding: 8px 12px; border-radius: 8px; font-family: ui-monospace, monospace;
   font-size: 0.75rem; line-height: 1.5; pointer-events: none;
   border: 1px solid #26262e; z-index: 10; transform: scaleX(-1);
+  backdrop-filter: blur(4px);
 }
 .hud div { display: flex; justify-content: space-between; gap: 12px; }
 .hud span { color: #63f5a1; font-weight: bold; }
 .hud.hidden { display: none; }
 
-.toolbar { display: flex; gap: 8px; justify-content: center; }
+.toolbar { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 .btn-sm {
   padding: 8px 14px; border-radius: 8px; border: 1px solid #26262e;
   background: #17171c; color: #e6e6ea; font-size: 0.8rem; font-weight: 600; cursor: pointer;
