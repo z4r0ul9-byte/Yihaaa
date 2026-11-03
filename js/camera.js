@@ -1,6 +1,6 @@
 /*
   camera.js
-  Tujuan     : Lifecycle kamera depan via getUserMedia + mapping error.
+  Tujuan     : Lifecycle kamera depan, dengan penanganan autoplay yang lebih tangguh.
   Dependensi : Tidak ada.
 */
 
@@ -10,10 +10,10 @@ export function isSecureContextOK() {
 
 export async function startCamera(videoEl, videoConstraints) {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    throw new Error('Browser tidak mendukung getUserMedia. Gunakan Chrome Android terbaru.');
+    throw new Error('Browser tidak mendukung getUserMedia.');
   }
   if (!isSecureContextOK()) {
-    throw new Error('Halaman bukan secure context. Kamera hanya bisa diakses via http://localhost atau https://.');
+    throw new Error('Halaman bukan secure context. Gunakan http://localhost atau https://.');
   }
 
   let stream;
@@ -26,12 +26,27 @@ export async function startCamera(videoEl, videoConstraints) {
     throw new Error(mapCameraError(err));
   }
 
-  videoEl.srcObject = stream;
-  videoEl.setAttribute('playsinline', '');
+  // Set atribut SEBELUM srcObject agar Android langsung mengenali ini video inline & mute
+  videoEl.setAttribute('playsinline', 'true');
+  videoEl.setAttribute('webkit-playsinline', 'true');
   videoEl.muted = true;
+  videoEl.srcObject = stream;
 
   await waitForMetadata(videoEl);
-  try { await videoEl.play(); } catch (_) {}
+
+  // FIX: Jangan ditelan mentah-mentah. Kalau gagal play, throw error biar user tau.
+  try {
+    await videoEl.play();
+  } catch (err) {
+    console.warn('Autoplay gagal, mencoba interaksi pengguna...', err);
+    // Fallback: Pasang event listener sekali untuk play manual jika autoplay diblokir
+    const playOnClick = () => { 
+      videoEl.play(); 
+      document.removeEventListener('click', playOnClick); 
+    };
+    document.addEventListener('click', playOnClick);
+    throw new Error('Video kamera berhenti (Autoplay Policy). Ketuk layar untuk memutar ulang.');
+  }
 
   return stream;
 }
@@ -52,7 +67,7 @@ function waitForMetadata(videoEl) {
     const onError = () => {
       videoEl.removeEventListener('loadedmetadata', onLoaded);
       videoEl.removeEventListener('error', onError);
-      reject(new Error('Gagal memuat metadata video dari kamera.'));
+      reject(new Error('Gagal memuat metadata video.'));
     };
     videoEl.addEventListener('loadedmetadata', onLoaded, { once: true });
     videoEl.addEventListener('error', onError, { once: true });
@@ -62,18 +77,9 @@ function waitForMetadata(videoEl) {
 function mapCameraError(err) {
   const name = err && err.name ? err.name : '';
   switch (name) {
-    case 'NotAllowedError':
-    case 'SecurityError':
-      return 'Izin kamera ditolak. Buka Setelan Chrome → Izin situs → Kamera → Izinkan, lalu muat ulang.';
-    case 'NotFoundError':
-    case 'OverconstrainedError':
-      return 'Kamera depan tidak ditemukan atau tidak memenuhi constraint.';
-    case 'NotReadableError':
-      return 'Kamera sedang dipakai aplikasi lain. Tutup aplikasi lain lalu coba lagi.';
-    case 'AbortError':
-      return 'Akses kamera dibatalkan oleh sistem. Coba lagi.';
-    default:
-      return 'Gagal mengakses kamera: ' + (err && err.message ? err.message : String(err));
+    case 'NotAllowedError': return 'Izin kamera ditolak.';
+    case 'NotFoundError': return 'Kamera depan tidak ditemukan.';
+    case 'NotReadableError': return 'Kamera sedang dipakai aplikasi lain.';
+    default: return 'Gagal mengakses kamera: ' + (err && err.message ? err.message : String(err));
   }
 }
-

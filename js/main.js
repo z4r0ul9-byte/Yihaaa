@@ -1,6 +1,6 @@
 /*
   main.js
-  Tujuan     : Orkestrator Fase F — Fix canvas menutupi video.
+  Tujuan     : Orkestrator Fase F — Fix canvas transparan menutupi video.
   Dependensi : config.js, camera.js, tracker.js, cursor.js, gesture.js, transform.js, hud.js, calibration.js
 */
 
@@ -23,8 +23,8 @@ const statusEl = document.getElementById('status');
 const startBtn = document.getElementById('startBtn');
 const zoomTargetEl = document.getElementById('zoom-target');
 
-// FIX: Hapus alpha:false. Canvas overlay HARUS transparan agar video di bawahnya kelihatan.
-const ctx = canvasEl.getContext('2d', { desynchronized: true });
+// FIX: Hapus 'desynchronized: true'. Flag ini bikin canvas transparan jadi item di Android.
+const ctx = canvasEl.getContext('2d');
 
 // ---- Runtime state --------------------------------------------------------
 let stream = null;
@@ -126,7 +126,6 @@ function drawLabel(landmarks, text, color) {
 
 // ---- Render ---------------------------------------------------------------
 function render(result, now) {
-  // FIX: Kembalikan ke clearRect agar canvas transparan dan video kelihatan
   ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
 
   const { landmarks, handedness } = result;
@@ -243,6 +242,6 @@ window.addEventListener('pagehide', () => {
 });
 
 if (!window.isSecureContext) {
-  setStatus('Halaman bukan secure context. Gunakan http://localhost atau https://.', 'error');
+  setStatus('Halaman bukan secure context.', 'error');
   setStartBtn({ disabled: true, label: 'Butuh Secure Context' });
 }
