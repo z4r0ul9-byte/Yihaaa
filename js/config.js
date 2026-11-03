@@ -1,7 +1,8 @@
 /*
   config.js
-  Tujuan     : Pusat konstanta & threshold. Menggunakan Model Lite & resolusi 480p.
+  Tujuan     : Pusat konstanta & threshold.
   Dependensi : Tidak ada.
+  Catatan    : URL model dikembalikan ke versi standar (yang terbukti jalan).
 */
 
 export const CONFIG = {
@@ -9,11 +10,8 @@ export const CONFIG = {
   WASM_ROOT: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm',
   TASKS_VISION_ESM: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm',
   
-  // Model Lite (lebih cepat & ringan untuk HP mid-range, akurasi tetap bagus)
-  MODEL_URL: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker_lite/float16/1/hand_landmarker_lite.task',
-
-  // Alternatif: Jika mau pakai model standar, ganti URL di atas dengan:
-  // 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task'
+  // REVERT: Balik ke model standar yang terbukti ada di server Google
+  MODEL_URL: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
 
   NUM_HANDS: 2,
   MIN_HAND_DETECTION_CONFIDENCE: 0.5,
@@ -22,7 +20,7 @@ export const CONFIG = {
 
   CAMERA: {
     facingMode: 'user',
-    // Turunkan resolusi ke 480p (640x480) untuk memangkas beban decode video
+    // Tetap pakai 480p untuk optimasi performa
     width: { ideal: 640 },
     height: { ideal: 480 },
     frameRate: { ideal: 30, max: 60 }
@@ -86,4 +84,3 @@ export function saveConfigToStorage() {
   };
   localStorage.setItem('handGestureConfig', JSON.stringify(data));
 }
-
