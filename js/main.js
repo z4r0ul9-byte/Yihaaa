@@ -1,14 +1,15 @@
 /*
   main.js
-  Tujuan     : Orkestrator Fase B — init kamera, tracker, kursor, dan loop render.
-  Dependensi : config.js, camera.js, tracker.js, cursor.js
-  Catatan    : Kursor digambar setelah skeleton agar selalu berada di lapisan atas.
+  Tujuan     : Orkestrator Fase C — Kamera, Skeleton, Kursor, Gestur Pinch, dan Zoom.
+  Dependensi : config.js, camera.js, tracker.js, cursor.js, gesture.js, zoom.js
 */
 
 import { CONFIG } from './config.js';
 import { startCamera, stopCamera } from './camera.js';
 import { createHandTracker, detectHands } from './tracker.js';
 import { Cursor } from './cursor.js';
+import { GestureDetector } from './gesture.js';
+import { ZoomController } from './zoom.js';
 
 // ---- DOM refs -------------------------------------------------------------
 const videoEl = document.getElementById('video');
@@ -16,6 +17,7 @@ const canvasEl = document.getElementById('overlay');
 const stageEl = document.getElementById('stage');
 const statusEl = document.getElementById('status');
 const startBtn = document.getElementById('startBtn');
+const zoomTargetEl = document.getElementById('zoom-target');
 const ctx = canvasEl.getContext('2d');
 
 // ---- Runtime state --------------------------------------------------------
@@ -25,8 +27,10 @@ let rafId = 0;
 let lastVideoTime = -1;
 let running = false;
 
-// ---- Modul Fase B ---------------------------------------------------------
+// ---- Modul ----------------------------------------------------------------
 const cursor = new Cursor(CONFIG.CURSOR);
+const gesture = new GestureDetector(CONFIG.GESTURE);
+const zoom = new ZoomController(zoomTargetEl, CONFIG.ZOOM);
 
 // ---- UI helpers -----------------------------------------------------------
 function setStatus(text, kind = '') {
@@ -51,9 +55,7 @@ function syncCanvasToVideo() {
 
 // ---- Draw helpers ---------------------------------------------------------
 function toCanvasXY(lm) {
-  const x = (1 - lm.x) * canvasEl.width;
-  const y = lm.y * canvasEl.height;
-  return [x, y];
+  return [(1 - lm.x) * canvasEl.width, lm.y * canvasEl.height];
 }
 
 function strokeWidth() {
@@ -106,18 +108,13 @@ function drawLabel(landmarks, text, color) {
   const metrics = ctx.measureText(text);
   const boxW = metrics.width + padX * 2;
   const boxH = fontSize + padY * 2;
-
   const boxX = wx - boxW / 2;
   const boxY = wy - fontSize - padY * 2 - 6;
 
   ctx.fillStyle = color.label;
   ctx.beginPath();
-  // Fallback jika ctx.roundRect tidak didukung (Chrome lama)
-  if (ctx.roundRect) {
-      ctx.roundRect(boxX, boxY, boxW, boxH, 6);
-  } else {
-      ctx.rect(boxX, boxY, boxW, boxH);
-  }
+  if (ctx.roundRect) ctx.roundRect(boxX, boxY, boxW, boxH, 6);
+  else ctx.rect(boxX, boxY, boxW, boxH);
   ctx.fill();
 
   ctx.fillStyle = '#ffffff';
@@ -148,9 +145,27 @@ function render(result) {
     }
   }
 
-  // 2. Update & Gambar Kursor
+  // 2. Update Kursor
   cursor.update(landmarks, handedness, canvasEl.width, canvasEl.height);
   cursor.draw(ctx);
+
+  // 3. Update Gestur & Zoom
+  // Ambil landmark dari primary hand yang dipilih kursor
+  let activeHandLandmarks = null;
+  if (cursor.primaryHandIndex !== -1 && landmarks[cursor.primaryHandIndex]) {
+    activeHandLandmarks = landmarks[cursor.primaryHandIndex];
+  }
+
+  const gestureData = gesture.update(activeHandLandmarks);
+  
+  // Update UI Status berdasarkan gestur
+  if (gestureData.state === 'PINCHED') {
+    setStatus(`Mencubit (Skala: ${zoom.currentScale.toFixed(2)}x)`, 'pinch');
+    zoom.update(gestureData);
+  } else {
+    if (running) setStatus('Siap. Deteksi berjalan. Cubit untuk zoom.', 'ok');
+    zoom.update(gestureData); // Cuma untuk sinkronisasi startScale
+  }
 }
 
 // ---- Detection loop -------------------------------------------------------
@@ -166,11 +181,7 @@ function loop(now) {
       running = false;
       cancelAnimationFrame(rafId);
       rafId = 0;
-      setStatus(
-        'Deteksi gagal saat runtime: ' +
-          (err && err.message ? err.message : String(err)),
-        'error'
-      );
+      setStatus('Runtime Error: ' + err.message, 'error');
       setStartBtn({ disabled: false, label: 'Coba Lagi' });
       return;
     }
@@ -194,15 +205,12 @@ async function boot() {
   }
 
   syncCanvasToVideo();
-  setStatus('Kamera aktif. Memuat model deteksi tangan…', 'warn');
+  setStatus('Kamera aktif. Memuat model…', 'warn');
 
   try {
     const created = await createHandTracker(CONFIG, (msg) => setStatus(msg, 'warn'));
     landmarker = created.landmarker;
-    setStatus(
-      'Siap. Deteksi berjalan (delegate ' + created.delegate + '). Kursor aktif.',
-      'ok'
-    );
+    setStatus('Siap. Deteksi berjalan (delegate ' + created.delegate + '). Cubit untuk zoom.', 'ok');
   } catch (err) {
     stopCamera(stream);
     stream = null;
@@ -233,10 +241,7 @@ window.addEventListener('pagehide', () => {
 });
 
 if (!window.isSecureContext) {
-  setStatus(
-    'Halaman bukan secure context. Kamera hanya bisa diakses via http://localhost atau https://.',
-    'error'
-  );
+  setStatus('Halaman bukan secure context. Gunakan http://localhost atau https://.', 'error');
   setStartBtn({ disabled: true, label: 'Butuh Secure Context' });
 }
 
