@@ -1,6 +1,6 @@
 /*
   style.css
-  Tujuan     : Styling UI + Filter Kamera (Monochrome/Cyberpunk).
+  Tujuan     : Styling UI + Filter Kamera Scanner (X-Ray/Cyberpunk).
 */
 
 * { box-sizing: border-box; }
@@ -46,8 +46,8 @@ body { min-height: 100dvh; display: flex; flex-direction: column; }
 .stage video { 
   object-fit: cover; 
   z-index: 1; 
-  /* FILTER KAMERA: Bikin background gelap, monokrom, dan kontras tinggi */
-  filter: grayscale(100%) brightness(0.4) contrast(1.3) sepia(30%) hue-rotate(180deg);
+  /* FILTER KAMERA: X-Ray Scanner (Gelap, Kontras Tinggi, Cyan Tint) */
+  filter: grayscale(100%) contrast(2) brightness(0.6) sepia(100%) hue-rotate(180deg);
 }
 
 .stage canvas { object-fit: cover; pointer-events: none; z-index: 2; }
