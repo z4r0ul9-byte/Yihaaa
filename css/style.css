@@ -1,7 +1,6 @@
 /*
   style.css
-  Tujuan     : Fix performa mirroring & z-index.
-  Catatan    : Mirror (scaleX(-1)) dipindah dari <video> ke .stage untuk hemat GPU.
+  Tujuan     : Styling mobile-first, kanvas tali karet.
 */
 
 * { box-sizing: border-box; }
@@ -11,15 +10,22 @@ html, body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
 }
+
 body { min-height: 100dvh; display: flex; flex-direction: column; }
+
 .app {
   flex: 1; display: flex; flex-direction: column;
   padding: max(10px, env(safe-area-inset-top)) 12px max(10px, env(safe-area-inset-bottom)) 12px;
   gap: 10px; max-width: 720px; width: 100%; margin: 0 auto;
 }
+
 .topbar h1 { margin: 0; font-size: 1rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
 .phase { font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #4d6bfe; color: #fff; }
-.status { font-size: 0.85rem; line-height: 1.4; padding: 10px 12px; border-radius: 10px; background: #17171c; border: 1px solid #26262e; color: #b9b9c4; transition: all 0.3s ease; }
+
+.status {
+  font-size: 0.85rem; line-height: 1.4; padding: 10px 12px; border-radius: 10px;
+  background: #17171c; border: 1px solid #26262e; color: #b9b9c4; transition: all 0.3s ease;
+}
 .status.ok    { border-color: #2a6b3d; background: #10231a; color: #b7e7c8; }
 .status.warn  { border-color: #6b5a1a; background: #241f0c; color: #f0dc9a; }
 .status.error { border-color: #6b1f1f; background: #240b0b; color: #f2b8b8; }
@@ -30,62 +36,65 @@ body { min-height: 100dvh; display: flex; flex-direction: column; }
 .stage {
   position: relative; width: 100%; aspect-ratio: 4 / 3;
   background: #000; border-radius: 14px; overflow: hidden; border: 1px solid #26262e;
-  /* MIRROR DISINI: Jauh lebih cepat daripada nge-mirror tag <video> */
   transform: scaleX(-1);
 }
 
 .stage video, .stage canvas {
   position: absolute; inset: 0; width: 100%; height: 100%; display: block;
 }
+.stage video { object-fit: cover; z-index: 1; }
+.stage canvas { object-fit: cover; pointer-events: none; z-index: 2; }
 
-.stage video {
-  object-fit: cover; z-index: 1;
-  /* transform: scaleX(-1); DIHAPUS */
-}
-
-.stage canvas {
-  object-fit: cover; pointer-events: none; z-index: 2;
-}
-
-/* Debug HUD */
 .hud {
   position: absolute; top: 10px; left: 10px;
   background: rgba(11, 11, 14, 0.9); color: #e6e6ea;
   padding: 8px 12px; border-radius: 8px; font-family: ui-monospace, monospace;
   font-size: 0.75rem; line-height: 1.5; pointer-events: none;
-  border: 1px solid #26262e; z-index: 10;
-  /* Karena .stage di-mirror, HUD harus di-un-mirror biar teksnya gak kebalik */
-  transform: scaleX(-1);
+  border: 1px solid #26262e; z-index: 10; transform: scaleX(-1);
 }
 .hud div { display: flex; justify-content: space-between; gap: 12px; }
 .hud span { color: #63f5a1; font-weight: bold; }
 .hud.hidden { display: none; }
 
 .toolbar { display: flex; gap: 8px; justify-content: center; }
-.btn-sm { padding: 8px 14px; border-radius: 8px; border: 1px solid #26262e; background: #17171c; color: #e6e6ea; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+.btn-sm {
+  padding: 8px 14px; border-radius: 8px; border: 1px solid #26262e;
+  background: #17171c; color: #e6e6ea; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+}
 .btn-sm:active { filter: brightness(0.8); }
 .btn-primary { background: #4d6bfe; color: #fff; border-color: #4d6bfe; }
 .btn-danger { background: #6b1f1f; color: #f2b8b8; border-color: #6b1f1f; }
 
-.panel { background: #17171c; border: 1px solid #26262e; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.panel {
+  background: #17171c; border: 1px solid #26262e; border-radius: 14px;
+  padding: 14px; display: flex; flex-direction: column; gap: 12px;
+}
 .panel.hidden { display: none; }
 .form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-group label { font-size: 0.75rem; color: #b9b9c4; display: flex; justify-content: space-between; }
 .form-group input[type="range"] { width: 100%; accent-color: #4d6bfe; height: 24px; }
 .panel-actions { display: flex; gap: 8px; margin-top: 4px; }
-.auto-status { font-size: 0.8rem; text-align: center; color: #f0dc9a; background: #241f0c; padding: 8px; border-radius: 8px; border: 1px solid #6b5a1a; }
+.auto-status {
+  font-size: 0.8rem; text-align: center; color: #f0dc9a; background: #241f0c;
+  padding: 8px; border-radius: 8px; border: 1px solid #6b5a1a;
+}
 .auto-status.hidden { display: none; }
 
-.zoom-container { width: 100%; height: 140px; background: #0b0b0e; border-radius: 14px; border: 1px solid #26262e; overflow: hidden; position: relative; }
-.zoom-target {
-  width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
-  background-color: #17171c;
-  background-image: linear-gradient(#26262e 1px, transparent 1px), linear-gradient(90deg, #26262e 1px, transparent 1px);
-  background-size: 20px 20px; transform-origin: center center; will-change: transform;
+/* Container untuk Tali Karet */
+.rope-container {
+  width: 100%; height: 180px; background: #0b0b0e;
+  border-radius: 14px; border: 1px solid #26262e; overflow: hidden;
+  position: relative;
 }
-.grid-content { font-size: 0.8rem; font-weight: 700; color: #4d6bfe; background: rgba(11, 11, 14, 0.8); padding: 4px 12px; border-radius: 4px; border: 1px solid #26262e; user-select: none; }
+#rope-canvas {
+  width: 100%; height: 100%; display: block;
+}
+
 .hint { margin: 0; font-size: 0.78rem; color: #86868f; text-align: center; line-height: 1.4; }
 .controls { display: flex; gap: 10px; margin-top: auto; }
-.btn { flex: 1; min-height: 48px; border: none; border-radius: 12px; background: #4d6bfe; color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer; }
+.btn {
+  flex: 1; min-height: 48px; border: none; border-radius: 12px;
+  background: #4d6bfe; color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer;
+}
 .btn:active { filter: brightness(0.9); }
 .btn:disabled { background: #2c2c35; color: #6d6d78; cursor: not-allowed; }
