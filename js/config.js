@@ -1,6 +1,6 @@
 /*
   config.js
-  Tujuan     : Optimasi deteksi (1 tangan) dan resolusi kamera.
+  Tujuan     : Set NUM_HANDS: 2 agar bisa menyambung tali antar dua tangan.
 */
 
 export const CONFIG = {
@@ -8,15 +8,14 @@ export const CONFIG = {
   TASKS_VISION_ESM: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm',
   MODEL_URL: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
 
-  // OPTIMASI: Set 1 tangan saja untuk mengurangi beban model.
-  NUM_HANDS: 1, 
+  // WAJIB 2 TANGAN untuk fitur tali karet
+  NUM_HANDS: 2, 
   MIN_HAND_DETECTION_CONFIDENCE: 0.5,
   MIN_HAND_PRESENCE_CONFIDENCE: 0.5,
   MIN_TRACKING_CONFIDENCE: 0.5,
 
   CAMERA: {
     facingMode: 'user',
-    // Gunakan max, bukan ideal, agar HP tidak ngasih resolusi lebih tinggi
     width: { max: 640 },
     height: { max: 480 },
     frameRate: { max: 30 }
@@ -34,9 +33,6 @@ export const CONFIG = {
     PINCH_IN: 0.25,
     PINCH_OUT: 0.35,
   },
-
-  ZOOM: { MIN_SCALE: 0.5, MAX_SCALE: 4.0 },
-  PAN: { EMA_ALPHA: 0.4 },
 
   HAND_CONNECTIONS: [
     [0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8],
@@ -57,11 +53,10 @@ export function loadConfigFromStorage() {
     const data = JSON.parse(raw);
     if (data.GESTURE) Object.assign(CONFIG.GESTURE, data.GESTURE);
     if (data.CURSOR && data.CURSOR.EMA_ALPHA) CONFIG.CURSOR.EMA_ALPHA = data.CURSOR.EMA_ALPHA;
-    if (data.PAN && data.PAN.EMA_ALPHA) CONFIG.PAN.EMA_ALPHA = data.PAN.EMA_ALPHA;
   } catch (e) {}
 }
 
 export function saveConfigToStorage() {
-  const data = { GESTURE: CONFIG.GESTURE, CURSOR: { EMA_ALPHA: CONFIG.CURSOR.EMA_ALPHA }, PAN: { EMA_ALPHA: CONFIG.PAN.EMA_ALPHA } };
+  const data = { GESTURE: CONFIG.GESTURE, CURSOR: { EMA_ALPHA: CONFIG.CURSOR.EMA_ALPHA } };
   localStorage.setItem('handGestureConfig', JSON.stringify(data));
 }

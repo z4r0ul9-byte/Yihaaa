@@ -1,7 +1,6 @@
 /*
   main.js
-  Tujuan     : Orkestrator Fase Rope — Menghubungkan kamera, kursor, gestur, dan tali karet.
-  Dependensi : config.js, camera.js, tracker.js, cursor.js, gesture.js, rope.js, hud.js, calibration.js
+  Tujuan     : Orkestrator Rope 2 Tangan.
 */
 
 import { CONFIG, loadConfigFromStorage } from './config.js';
@@ -9,7 +8,7 @@ import { startCamera, stopCamera } from './camera.js';
 import { createHandTracker, detectHands } from './tracker.js';
 import { Cursor } from './cursor.js';
 import { GestureDetector } from './gesture.js';
-import { RopeController } from './rope.js';
+import { Rope } from './rope.js';
 import { HUD } from './hud.js';
 import { Calibration } from './calibration.js';
 
@@ -20,7 +19,6 @@ const canvasEl = document.getElementById('overlay');
 const stageEl = document.getElementById('stage');
 const statusEl = document.getElementById('status');
 const startBtn = document.getElementById('startBtn');
-const ropeCanvas = document.getElementById('rope-canvas');
 const ctx = canvasEl.getContext('2d');
 
 let stream = null;
@@ -31,13 +29,9 @@ let running = false;
 
 const cursor = new Cursor(CONFIG.CURSOR);
 const gesture = new GestureDetector(CONFIG.GESTURE);
-const rope = new RopeController(ropeCanvas);
+const rope = new Rope(15, 20); // 15 titik, tiap titik jaraknya 20px
 const hud = new HUD();
 const calibration = new Calibration(CONFIG, cursor, gesture);
-
-// Resize canvas tali pas pertama kali dibuka
-setTimeout(() => rope.resize(), 100);
-window.addEventListener('resize', () => rope.resize());
 
 function setStatus(text, kind = '') {
   statusEl.textContent = text;
@@ -112,7 +106,7 @@ function drawLabel(landmarks, text, color) {
 
   ctx.save();
   ctx.translate(wx, boxY + boxH / 2);
-  ctx.scale(-1, 1); // Un-mirror teks lokal
+  ctx.scale(-1, 1);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#ffffff';
@@ -124,6 +118,8 @@ function render(result, now) {
   ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
   const { landmarks, handedness } = result;
 
+  const handTips = [];
+
   if (landmarks.length > 0) {
     const lw = strokeWidth();
     const r = pointRadius();
@@ -131,6 +127,10 @@ function render(result, now) {
     for (let i = 0; i < landmarks.length; i++) {
       const lms = landmarks[i];
       if (!lms || lms.length < 21) continue;
+      
+      // Simpan ujung telunjuk (landmark 8) untuk tali
+      handTips.push(toCanvasXY(lms[8]));
+
       const color = CONFIG.HAND_COLORS[i % CONFIG.HAND_COLORS.length];
       drawSkeleton(lms, CONFIG.HAND_CONNECTIONS, color, lw, r);
 
@@ -143,35 +143,25 @@ function render(result, now) {
   cursor.update(landmarks, handedness, canvasEl.width, canvasEl.height);
   cursor.draw(ctx);
 
+  // Update Gesture (hanya pakai tangan pertama/primary)
   let activeHandLandmarks = null;
   if (cursor.primaryHandIndex !== -1 && landmarks[cursor.primaryHandIndex]) {
     activeHandLandmarks = landmarks[cursor.primaryHandIndex];
   }
-
   const gestureData = gesture.update(activeHandLandmarks);
-  const isPinching = gestureData.state === 'PINCHED';
-  
-  if (isPinching) {
-    setStatus(`Mencubit (Tarik tali!)`, 'pinch');
-  } else if (running) {
-    setStatus('Siap. Cubit simpul tali untuk menarik.', 'ok');
-  }
 
-  // Map kursor ke koordinat Canvas Tali
-  // Cursor.x adalah raw (0..width). CSS stage di-mirror, tapi canvas tali TIDAK.
-  // Jadi kita balik X-nya (1 - x).
-  if (cursor.active) {
-    const normX = cursor.x / canvasEl.width;
-    const normY = cursor.y / canvasEl.height;
-    const ropeX = (1 - normX) * ropeCanvas.getBoundingClientRect().width; // Un-mirror
-    const ropeY = normY * ropeCanvas.getBoundingClientRect().height;
-    
-    rope.update(isPinching, ropeX, ropeY);
-  } else {
-    rope.update(false, 0, 0);
-  }
+  // Update & Gambar Tali (sambungkan 2 tangan kalau ada)
+  const t1 = handTips[0] || null;
+  const t2 = handTips[1] || null;
   
-  rope.draw();
+  rope.update(t1, t2, canvasEl.width, canvasEl.height);
+  rope.draw(ctx);
+
+  if (gestureData.state === 'PINCHED') {
+    setStatus(`Mencubit`, 'pinch');
+  } else if (running) {
+    setStatus('Siap. Tunjukkan 2 tangan lu ke kamera.', 'ok');
+  }
 
   hud.update(now, landmarks.length, gestureData);
   calibration.tick(now, gestureData);
@@ -215,7 +205,7 @@ async function boot() {
   try {
     const created = await createHandTracker(CONFIG, (msg) => setStatus(msg, 'warn'));
     landmarker = created.landmarker;
-    setStatus('Siap. Cubit simpul tali.', 'ok');
+    setStatus('Siap. Gunakan 2 tangan!', 'ok');
   } catch (err) {
     stopCamera(stream);
     stream = null;
