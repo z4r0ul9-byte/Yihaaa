@@ -1,6 +1,6 @@
 /*
   config.js
-  Tujuan     : Pusat konstanta & threshold.
+  Tujuan     : Pusat konstanta & threshold. Dilengkapi load/save localStorage.
   Dependensi : Tidak ada.
 */
 
@@ -30,8 +30,8 @@ export const CONFIG = {
   },
 
   GESTURE: {
-    PINCH_IN: 0.25,   // Threshold masuk (cubit)
-    PINCH_OUT: 0.35,  // Threshold keluar (lepas) -> Hysteresis
+    PINCH_IN: 0.25,
+    PINCH_OUT: 0.35,
   },
 
   ZOOM: {
@@ -39,9 +39,8 @@ export const CONFIG = {
     MAX_SCALE: 4.0
   },
 
-  // Konfigurasi Drag / Pan (Fase D)
   PAN: {
-    EMA_ALPHA: 0.4 // Smoothing untuk translasi (geser). 0 = lag, 1 = instan.
+    EMA_ALPHA: 0.4
   },
 
   HAND_CONNECTIONS: [
@@ -58,4 +57,26 @@ export const CONFIG = {
     { bone: '#63b9f5', point: '#e6f3ff', label: '#0f4d6b' }
   ]
 };
+
+export function loadConfigFromStorage() {
+  const raw = localStorage.getItem('handGestureConfig');
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw);
+    if (data.GESTURE) Object.assign(CONFIG.GESTURE, data.GESTURE);
+    if (data.CURSOR && data.CURSOR.EMA_ALPHA) CONFIG.CURSOR.EMA_ALPHA = data.CURSOR.EMA_ALPHA;
+    if (data.PAN && data.PAN.EMA_ALPHA) CONFIG.PAN.EMA_ALPHA = data.PAN.EMA_ALPHA;
+  } catch (e) {
+    console.warn('Gagal memuat konfigurasi', e);
+  }
+}
+
+export function saveConfigToStorage() {
+  const data = {
+    GESTURE: CONFIG.GESTURE,
+    CURSOR: { EMA_ALPHA: CONFIG.CURSOR.EMA_ALPHA },
+    PAN: { EMA_ALPHA: CONFIG.PAN.EMA_ALPHA }
+  };
+  localStorage.setItem('handGestureConfig', JSON.stringify(data));
+}
 

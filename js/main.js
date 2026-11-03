@@ -1,15 +1,20 @@
 /*
   main.js
-  Tujuan     : Orkestrator Fase D — Kamera, Skeleton, Kursor, Gestur, Zoom & Pan.
-  Dependensi : config.js, camera.js, tracker.js, cursor.js, gesture.js, transform.js
+  Tujuan     : Orkestrator Fase E — Kamera, Skeleton, Kursor, Gestur, Transform, HUD, Calibration.
+  Dependensi : config.js, camera.js, tracker.js, cursor.js, gesture.js, transform.js, hud.js, calibration.js
 */
 
-import { CONFIG } from './config.js';
+import { CONFIG, loadConfigFromStorage } from './config.js';
 import { startCamera, stopCamera } from './camera.js';
 import { createHandTracker, detectHands } from './tracker.js';
 import { Cursor } from './cursor.js';
 import { GestureDetector } from './gesture.js';
 import { TransformController } from './transform.js';
+import { HUD } from './hud.js';
+import { Calibration } from './calibration.js';
+
+// Load konfigurasi sebelum inisialisasi modul
+loadConfigFromStorage();
 
 // ---- DOM refs -------------------------------------------------------------
 const videoEl = document.getElementById('video');
@@ -31,6 +36,8 @@ let running = false;
 const cursor = new Cursor(CONFIG.CURSOR);
 const gesture = new GestureDetector(CONFIG.GESTURE);
 const transform = new TransformController(zoomTargetEl, CONFIG.ZOOM, CONFIG.PAN);
+const hud = new HUD();
+const calibration = new Calibration(CONFIG, cursor, gesture, transform);
 
 // ---- UI helpers -----------------------------------------------------------
 function setStatus(text, kind = '') {
@@ -58,13 +65,8 @@ function toCanvasXY(lm) {
   return [(1 - lm.x) * canvasEl.width, lm.y * canvasEl.height];
 }
 
-function strokeWidth() {
-  return Math.max(3, Math.round(canvasEl.width * 0.004));
-}
-
-function pointRadius() {
-  return Math.max(4, Math.round(canvasEl.width * 0.008));
-}
+function strokeWidth() { return Math.max(3, Math.round(canvasEl.width * 0.004)); }
+function pointRadius() { return Math.max(4, Math.round(canvasEl.width * 0.008)); }
 
 function drawSkeleton(landmarks, connections, color, lw, r) {
   ctx.strokeStyle = color.bone;
@@ -122,12 +124,11 @@ function drawLabel(landmarks, text, color) {
 }
 
 // ---- Render ---------------------------------------------------------------
-function render(result) {
+function render(result, now) {
   ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
 
   const { landmarks, handedness } = result;
 
-  // 1. Gambar Skeleton
   if (landmarks.length > 0) {
     const lw = strokeWidth();
     const r = pointRadius();
@@ -145,11 +146,9 @@ function render(result) {
     }
   }
 
-  // 2. Update Kursor
   cursor.update(landmarks, handedness, canvasEl.width, canvasEl.height);
   cursor.draw(ctx);
 
-  // 3. Update Gestur, Transform (Zoom & Pan)
   let activeHandLandmarks = null;
   if (cursor.primaryHandIndex !== -1 && landmarks[cursor.primaryHandIndex]) {
     activeHandLandmarks = landmarks[cursor.primaryHandIndex];
@@ -164,6 +163,10 @@ function render(result) {
   }
   
   transform.update(gestureData, canvasEl.width, canvasEl.height);
+
+  // Update HUD & Calibration Tick
+  hud.update(now, landmarks.length, gestureData, transform.currentScale);
+  calibration.tick(now, gestureData);
 }
 
 // ---- Detection loop -------------------------------------------------------
@@ -174,7 +177,7 @@ function loop(now) {
     lastVideoTime = videoEl.currentTime;
     try {
       const result = detectHands(landmarker, videoEl, now);
-      render(result);
+      render(result, now);
     } catch (err) {
       running = false;
       cancelAnimationFrame(rafId);
