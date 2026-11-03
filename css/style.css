@@ -1,9 +1,7 @@
 /*
   style.css
-  Tujuan     : Styling mobile-first, dark default, no-overflow, tombol ≥44px.
+  Tujuan     : Styling mobile-first, dark default, no-overflow.
   Dependensi : Tidak ada.
-  Catatan    : Video di-mirror (kamera depan). Canvas overlay TIDAK di-mirror;
-               mirroring landmark dilakukan di JS supaya label teks tetap terbaca.
 */
 
 * { box-sizing: border-box; }
@@ -63,11 +61,13 @@ body {
   background: #17171c;
   border: 1px solid #26262e;
   color: #b9b9c4;
+  transition: all 0.3s ease;
 }
 
 .status.ok    { border-color: #2a6b3d; background: #10231a; color: #b7e7c8; }
 .status.warn  { border-color: #6b5a1a; background: #241f0c; color: #f0dc9a; }
 .status.error { border-color: #6b1f1f; background: #240b0b; color: #f2b8b8; }
+.status.pinch { border-color: #4d6bfe; background: #1a223c; color: #9db3ff; }
 
 .stage-wrap {
   display: flex;
@@ -83,7 +83,6 @@ body {
   border-radius: 14px;
   overflow: hidden;
   border: 1px solid #26262e;
-  /* aspect-ratio akan di-override via JS setelah metadata video siap */
 }
 
 .stage video,
@@ -97,14 +96,49 @@ body {
 
 .stage video {
   object-fit: cover;
-  /* mirror kamera depan supaya terasa seperti cermin */
   transform: scaleX(-1);
 }
 
 .stage canvas {
-  /* TIDAK di-mirror — mirroring dilakukan di draw agar label teks tidak terbalik */
   object-fit: cover;
   pointer-events: none;
+}
+
+/* Zoom Target Area */
+.zoom-container {
+  width: 100%;
+  height: 120px;
+  background: #000;
+  border-radius: 14px;
+  border: 1px solid #26262e;
+  overflow: hidden;
+  position: relative;
+}
+
+.zoom-target {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #17171c;
+  background-image: 
+    linear-gradient(#26262e 1px, transparent 1px),
+    linear-gradient(90deg, #26262e 1px, transparent 1px);
+  background-size: 20px 20px;
+  transition: transform 0.1s ease-out; /* Sedikit smoothing visual */
+  transform-origin: center center;
+}
+
+.grid-content {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #4d6bfe;
+  background: rgba(11, 11, 14, 0.8);
+  padding: 4px 12px;
+  border-radius: 4px;
+  border: 1px solid #26262e;
 }
 
 .hint {
@@ -134,10 +168,5 @@ body {
 }
 
 .btn:active { filter: brightness(0.9); }
-
-.btn:disabled {
-  background: #2c2c35;
-  color: #6d6d78;
-  cursor: not-allowed;
-}
+.btn:disabled { background: #2c2c35; color: #6d6d78; cursor: not-allowed; }
 
