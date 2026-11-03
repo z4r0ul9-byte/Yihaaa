@@ -1,6 +1,6 @@
 /*
   main.js
-  Tujuan     : Orkestrator Dual Mode (Rope & Balok 3D dengan Smoothing).
+  Tujuan     : Orkestrator Dual Mode (Rope & Balok 3D).
 */
 
 import { CONFIG, loadConfigFromStorage } from './config.js';
@@ -46,7 +46,7 @@ btnToggleMode.addEventListener('click', () => {
     btnToggleMode.style.background = '#00e5ff';
     btnToggleMode.style.color = '#000';
     btnToggleMode.style.borderColor = '#00e5ff';
-    modeHint.textContent = 'Balok 3D aktif. Dekatkan/jauhkan tangan untuk mengatur ketebalan (Z).';
+    modeHint.textContent = 'Balok 3D aktif. Gunakan DUA TANGAN untuk menarik balok.';
   } else {
     currentMode = 'rope';
     btnToggleMode.textContent = 'Mode: Rope';
@@ -157,7 +157,6 @@ function render(result, now) {
       
       handTips.push(toCanvasXY(lms[8]));
 
-      // Hitung total ukuran telapak untuk deteksi Z (rata-rata kalau 2 tangan)
       totalHandSize += Math.hypot(lms[0].x - lms[9].x, lms[0].y - lms[9].y);
 
       const color = CONFIG.HAND_COLORS[i % CONFIG.HAND_COLORS.length];
@@ -182,6 +181,7 @@ function render(result, now) {
   }
   const gestureData = gesture.update(activeHandLandmarks);
 
+  // Ambil titik ujung jari (maks 2)
   const t1 = handTips[0] || null;
   const t2 = handTips[1] || null;
 

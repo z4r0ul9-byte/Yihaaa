@@ -1,6 +1,6 @@
 /*
   block.js
-  Tujuan     : Menggambar Balok 3D dengan efek Neon Glow + Smoothing (Anti-Goyang).
+  Tujuan     : Menggambar Balok 3D dengan efek Neon Glow + Fix bug freeze & teks kebalik.
   Dependensi : Tidak ada.
 */
 
@@ -9,40 +9,44 @@ export class DimensionBlock {
     this.ax = null; this.ay = null;
     this.bx = null; this.by = null;
     
-    // Value smoothing (EMA)
     this.smoothAx = null; this.smoothAy = null;
     this.smoothBx = null; this.smoothBy = null;
     this.smoothDepth = 1.0;
     
-    // Alpha untuk smoothing (semakin kecil, semakin "berat"/tenang)
     this.alphaPos = 0.3;
     this.alphaDepth = 0.1;
+    
+    // Flag untuk mencegah balok freeze saat tangan hilang
+    this.active = false; 
   }
 
   update(anchor1, anchor2, depthRatio = 1.0) {
-    // Update target posisi
-    const targetAx = anchor1 ? anchor1[0] : null;
-    const targetAy = anchor1 ? anchor1[1] : null;
-    const targetBx = anchor2 ? anchor2[0] : null;
-    const targetBy = anchor2 ? anchor2[1] : null;
+    // FIX BUG: Jika salah satu tangan tidak terdeteksi, matikan balok.
+    if (!anchor1 || !anchor2) {
+      this.active = false;
+      return;
+    }
+    this.active = true;
+
+    const targetAx = anchor1[0];
+    const targetAy = anchor1[1];
+    const targetBx = anchor2[0];
+    const targetBy = anchor2[1];
 
     // Inisialisasi pertama kali
-    if (this.smoothAx === null && targetAx !== null) {
+    if (this.smoothAx === null) {
       this.smoothAx = targetAx; this.smoothAy = targetAy;
       this.smoothBx = targetBx; this.smoothBy = targetBy;
       this.smoothDepth = depthRatio;
     }
 
-    // Terapkan EMA Smoothing kalau target ada
-    if (targetAx !== null && this.smoothAx !== null) {
-      this.smoothAx += (targetAx - this.smoothAx) * this.alphaPos;
-      this.smoothAy += (targetAy - this.smoothAy) * this.alphaPos;
-      this.smoothBx += (targetBx - this.smoothBx) * this.alphaPos;
-      this.smoothBy += (targetBy - this.smoothBy) * this.alphaPos;
-      
-      // Smoothing depth (ketebalan) lebih lambat agar tidak berkedip
-      this.smoothDepth += (depthRatio - this.smoothDepth) * this.alphaDepth;
-    }
+    // EMA Smoothing
+    this.smoothAx += (targetAx - this.smoothAx) * this.alphaPos;
+    this.smoothAy += (targetAy - this.smoothAy) * this.alphaPos;
+    this.smoothBx += (targetBx - this.smoothBx) * this.alphaPos;
+    this.smoothBy += (targetBy - this.smoothBy) * this.alphaPos;
+    
+    this.smoothDepth += (depthRatio - this.smoothDepth) * this.alphaDepth;
     
     this.ax = this.smoothAx;
     this.ay = this.smoothAy;
@@ -52,7 +56,8 @@ export class DimensionBlock {
   }
 
   draw(ctx) {
-    if (this.ax === null || this.bx === null) return;
+    // Jika balok tidak aktif, jangan digambar
+    if (!this.active || this.ax === null || this.bx === null) return;
 
     const x1 = Math.min(this.ax, this.bx);
     const x2 = Math.max(this.ax, this.bx);
@@ -120,8 +125,14 @@ export class DimensionBlock {
     ctx.fillStyle = neonColor;
     ctx.font = `bold 14px ui-monospace, monospace`;
     ctx.textAlign = 'center';
+    
+    // FIX BUG: Teks harus di-un-mirror agar tidak kebalik
     const centerX = (x1 + x2) / 2;
-    ctx.fillText(`Z: ${this.depthRatio.toFixed(2)}x`, centerX, y2 + 25);
+    ctx.save();
+    ctx.translate(centerX, y2 + 25);
+    ctx.scale(-1, 1); // Flip horizontal
+    ctx.fillText(`Z: ${this.depthRatio.toFixed(2)}x`, 0, 0);
+    ctx.restore();
 
     ctx.restore();
   }
