@@ -1,25 +1,54 @@
 /*
   block.js
-  Tujuan     : Menggambar Balok 3D (Pseudo-Isometric) dengan efek Neon Glow + Depth Control.
+  Tujuan     : Menggambar Balok 3D dengan efek Neon Glow + Smoothing (Anti-Goyang).
   Dependensi : Tidak ada.
-  Catatan    : Menerima parameter depthRatio untuk mengatur ketebalan (sumbu Z) secara dinamis.
 */
 
 export class DimensionBlock {
   constructor() {
     this.ax = null; this.ay = null;
     this.bx = null; this.by = null;
-    this.depthRatio = 1.0;
+    
+    // Value smoothing (EMA)
+    this.smoothAx = null; this.smoothAy = null;
+    this.smoothBx = null; this.smoothBy = null;
+    this.smoothDepth = 1.0;
+    
+    // Alpha untuk smoothing (semakin kecil, semakin "berat"/tenang)
+    this.alphaPos = 0.3;
+    this.alphaDepth = 0.1;
   }
 
   update(anchor1, anchor2, depthRatio = 1.0) {
-    this.ax = anchor1 ? anchor1[0] : null;
-    this.ay = anchor1 ? anchor1[1] : null;
-    this.bx = anchor2 ? anchor2[0] : null;
-    this.by = anchor2 ? anchor2[1] : null;
+    // Update target posisi
+    const targetAx = anchor1 ? anchor1[0] : null;
+    const targetAy = anchor1 ? anchor1[1] : null;
+    const targetBx = anchor2 ? anchor2[0] : null;
+    const targetBy = anchor2 ? anchor2[1] : null;
+
+    // Inisialisasi pertama kali
+    if (this.smoothAx === null && targetAx !== null) {
+      this.smoothAx = targetAx; this.smoothAy = targetAy;
+      this.smoothBx = targetBx; this.smoothBy = targetBy;
+      this.smoothDepth = depthRatio;
+    }
+
+    // Terapkan EMA Smoothing kalau target ada
+    if (targetAx !== null && this.smoothAx !== null) {
+      this.smoothAx += (targetAx - this.smoothAx) * this.alphaPos;
+      this.smoothAy += (targetAy - this.smoothAy) * this.alphaPos;
+      this.smoothBx += (targetBx - this.smoothBx) * this.alphaPos;
+      this.smoothBy += (targetBy - this.smoothBy) * this.alphaPos;
+      
+      // Smoothing depth (ketebalan) lebih lambat agar tidak berkedip
+      this.smoothDepth += (depthRatio - this.smoothDepth) * this.alphaDepth;
+    }
     
-    // Smoothing sederhana untuk depth biar gak goyang
-    this.depthRatio = this.depthRatio * 0.8 + depthRatio * 0.2;
+    this.ax = this.smoothAx;
+    this.ay = this.smoothAy;
+    this.bx = this.smoothBx;
+    this.by = this.smoothBy;
+    this.depthRatio = this.smoothDepth;
   }
 
   draw(ctx) {
@@ -33,19 +62,15 @@ export class DimensionBlock {
     const w = x2 - x1;
     const h = y2 - y1;
     
-    // Hitung kedalaman (Z) berdasarkan ukuran balok dan rasio tangan
     const baseDepth = Math.max(w, h) * 0.3;
     const depth = Math.max(10, baseDepth * this.depthRatio);
     
-    // Offset proyeksi isometrik
     const ox = -depth * 0.8;
     const oy = -depth * 0.6;
 
-    // Warna berubah sesuai kedalaman:
-    // Tipis (mundur) = Biru, Normal = Cyan, Tebal (maju) = Magenta
-    let neonColor = '#00e5ff'; // Cyan
-    if (this.depthRatio < 0.8) neonColor = '#4d6bfe'; // Biru (Mundur)
-    if (this.depthRatio > 1.5) neonColor = '#ff00ff'; // Magenta (Maju)
+    let neonColor = '#00e5ff'; 
+    if (this.depthRatio < 0.8) neonColor = '#4d6bfe'; 
+    if (this.depthRatio > 1.5) neonColor = '#ff00ff'; 
 
     ctx.save();
     ctx.shadowBlur = 15;
@@ -60,28 +85,27 @@ export class DimensionBlock {
       ctx.stroke();
     };
 
-    // 1. Sisi Belakang (Back Face)
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+    // Back face
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
     ctx.beginPath();
     ctx.rect(x1 + ox, y1 + oy, w, h);
     ctx.fill();
     ctx.stroke();
 
-    // 2. Garis Penghubung (Depth Edges)
+    // Depth edges
     line(x1, y1, x1 + ox, y1 + oy); 
     line(x2, y1, x2 + ox, y1 + oy); 
     line(x1, y2, x1 + ox, y2 + oy); 
     line(x2, y2, x2 + ox, y2 + oy); 
 
-    // 3. Sisi Depan (Front Face)
-    ctx.fillStyle = neonColor.replace(')', ', 0.15)').replace('rgb', 'rgba'); // Fallback transparan
+    // Front face
     ctx.fillStyle = this.depthRatio > 1.5 ? 'rgba(255, 0, 255, 0.15)' : (this.depthRatio < 0.8 ? 'rgba(77, 107, 254, 0.15)' : 'rgba(0, 229, 255, 0.15)');
     ctx.beginPath();
     ctx.rect(x1, y1, w, h);
     ctx.fill();
     ctx.stroke();
 
-    // 4. Tanda Sudut Depan (Corner Brackets)
+    // Corner Brackets
     ctx.lineWidth = 4;
     const len = Math.min(20, w/2, h/2);
     ctx.beginPath();
@@ -91,13 +115,11 @@ export class DimensionBlock {
     ctx.moveTo(x1 + len, y2); ctx.lineTo(x1, y2); ctx.lineTo(x1, y2 - len);
     ctx.stroke();
 
-    // 5. Teks Indikator Z (Kedalaman)
-    ctx.shadowBlur = 0; // Matikan shadow untuk teks
+    // Teks Z
+    ctx.shadowBlur = 0;
     ctx.fillStyle = neonColor;
     ctx.font = `bold 14px ui-monospace, monospace`;
     ctx.textAlign = 'center';
-    
-    // Konversi balik X ke layar (karena canvas di-mirror via CSS)
     const centerX = (x1 + x2) / 2;
     ctx.fillText(`Z: ${this.depthRatio.toFixed(2)}x`, centerX, y2 + 25);
 

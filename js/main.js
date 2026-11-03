@@ -1,7 +1,6 @@
 /*
   main.js
-  Tujuan     : Orkestrator Dual Mode (Rope & Balok 3D dengan Z-Depth Control).
-  Dependensi : config.js, camera.js, tracker.js, cursor.js, gesture.js, rope.js, block.js, hud.js, calibration.js
+  Tujuan     : Orkestrator Dual Mode (Rope & Balok 3D dengan Smoothing).
 */
 
 import { CONFIG, loadConfigFromStorage } from './config.js';
@@ -150,11 +149,16 @@ function render(result, now) {
     const lw = strokeWidth();
     const r = pointRadius();
 
+    let totalHandSize = 0;
+
     for (let i = 0; i < landmarks.length; i++) {
       const lms = landmarks[i];
       if (!lms || lms.length < 21) continue;
       
       handTips.push(toCanvasXY(lms[8]));
+
+      // Hitung total ukuran telapak untuk deteksi Z (rata-rata kalau 2 tangan)
+      totalHandSize += Math.hypot(lms[0].x - lms[9].x, lms[0].y - lms[9].y);
 
       const color = CONFIG.HAND_COLORS[i % CONFIG.HAND_COLORS.length];
       drawSkeleton(lms, CONFIG.HAND_CONNECTIONS, color, lw, r);
@@ -164,16 +168,9 @@ function render(result, now) {
       drawLabel(lms, labelForUser(rawName), color);
     }
 
-    // --- KALKULASI DEPTH (Z) BERDASARKAN UKURAN TANGAN ---
-    // Ambil tangan pertama (index 0) sebagai referensi
-    const refHand = landmarks[0];
-    // Jarak wrist (0) ke pangkal jari tengah (9)
-    const handSize = Math.hypot(refHand[0].x - refHand[9].x, refHand[0].y - refHand[9].y);
-    
-    // Normalisasi: anggap ukuran normal 0.15. 
-    // Kalau lebih gede (maju) rasionya > 1, kalau kecil (mundur) < 1.
-    depthRatio = handSize / 0.15;
-    depthRatio = Math.max(0.4, Math.min(2.5, depthRatio)); // Clamp 0.4x - 2.5x
+    const avgHandSize = totalHandSize / landmarks.length;
+    depthRatio = avgHandSize / 0.15; 
+    depthRatio = Math.max(0.4, Math.min(2.5, depthRatio)); 
   }
 
   cursor.update(landmarks, handedness, canvasEl.width, canvasEl.height);
@@ -192,7 +189,6 @@ function render(result, now) {
     rope.update(t1, t2, canvasEl.width, canvasEl.height);
     rope.draw(ctx);
   } else {
-    // Kirim depthRatio ke block
     block.update(t1, t2, depthRatio);
     block.draw(ctx);
   }
