@@ -1,6 +1,6 @@
 /*
   main.js
-  Tujuan     : Orkestrator Dual Mode (Rope & Balok 3D).
+  Tujuan     : Orkestrator Dual Mode (Rope & Balok 3D dengan Z-Depth Control).
   Dependensi : config.js, camera.js, tracker.js, cursor.js, gesture.js, rope.js, block.js, hud.js, calibration.js
 */
 
@@ -31,8 +31,7 @@ let rafId = 0;
 let lastVideoTime = -1;
 let running = false;
 
-// Mode State
-let currentMode = 'rope'; // 'rope' | 'block'
+let currentMode = 'rope'; 
 
 const cursor = new Cursor(CONFIG.CURSOR);
 const gesture = new GestureDetector(CONFIG.GESTURE);
@@ -41,7 +40,6 @@ const block = new DimensionBlock();
 const hud = new HUD();
 const calibration = new Calibration(CONFIG, cursor, gesture);
 
-// Event Listener Switch Mode
 btnToggleMode.addEventListener('click', () => {
   if (currentMode === 'rope') {
     currentMode = 'block';
@@ -49,7 +47,7 @@ btnToggleMode.addEventListener('click', () => {
     btnToggleMode.style.background = '#00e5ff';
     btnToggleMode.style.color = '#000';
     btnToggleMode.style.borderColor = '#00e5ff';
-    modeHint.textContent = 'Balok Dimensi 3D aktif. Gerakkan dua tangan untuk melebarkan balok.';
+    modeHint.textContent = 'Balok 3D aktif. Dekatkan/jauhkan tangan untuk mengatur ketebalan (Z).';
   } else {
     currentMode = 'rope';
     btnToggleMode.textContent = 'Mode: Rope';
@@ -146,6 +144,7 @@ function render(result, now) {
   const { landmarks, handedness } = result;
 
   const handTips = [];
+  let depthRatio = 1.0;
 
   if (landmarks.length > 0) {
     const lw = strokeWidth();
@@ -155,7 +154,6 @@ function render(result, now) {
       const lms = landmarks[i];
       if (!lms || lms.length < 21) continue;
       
-      // Simpan ujung telunjuk (landmark 8) untuk anchor
       handTips.push(toCanvasXY(lms[8]));
 
       const color = CONFIG.HAND_COLORS[i % CONFIG.HAND_COLORS.length];
@@ -165,6 +163,17 @@ function render(result, now) {
       const rawName = hn && hn.categoryName ? hn.categoryName : '';
       drawLabel(lms, labelForUser(rawName), color);
     }
+
+    // --- KALKULASI DEPTH (Z) BERDASARKAN UKURAN TANGAN ---
+    // Ambil tangan pertama (index 0) sebagai referensi
+    const refHand = landmarks[0];
+    // Jarak wrist (0) ke pangkal jari tengah (9)
+    const handSize = Math.hypot(refHand[0].x - refHand[9].x, refHand[0].y - refHand[9].y);
+    
+    // Normalisasi: anggap ukuran normal 0.15. 
+    // Kalau lebih gede (maju) rasionya > 1, kalau kecil (mundur) < 1.
+    depthRatio = handSize / 0.15;
+    depthRatio = Math.max(0.4, Math.min(2.5, depthRatio)); // Clamp 0.4x - 2.5x
   }
 
   cursor.update(landmarks, handedness, canvasEl.width, canvasEl.height);
@@ -176,16 +185,15 @@ function render(result, now) {
   }
   const gestureData = gesture.update(activeHandLandmarks);
 
-  // Ambil titik ujung jari (maks 2)
   const t1 = handTips[0] || null;
   const t2 = handTips[1] || null;
 
-  // Render berdasarkan Mode
   if (currentMode === 'rope') {
     rope.update(t1, t2, canvasEl.width, canvasEl.height);
     rope.draw(ctx);
   } else {
-    block.update(t1, t2);
+    // Kirim depthRatio ke block
+    block.update(t1, t2, depthRatio);
     block.draw(ctx);
   }
 
