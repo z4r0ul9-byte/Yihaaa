@@ -1,7 +1,8 @@
 /*
   hud.js
-  Tujuan     : Menampilkan metrik performa dan deteksi secara real-time.
+  Tujuan     : Menampilkan metrik performa dan deteksi.
   Dependensi : Tidak ada.
+  Catatan    : Update DOM di-throttle maksimal 10x/detik agar tidak membebani main thread.
 */
 
 export class HUD {
@@ -17,6 +18,7 @@ export class HUD {
     this.isVisible = true;
     
     this.lastTime = performance.now();
+    this.lastUpdate = performance.now();
     this.frames = 0;
 
     this.btnToggle.addEventListener('click', () => this.toggle());
@@ -39,17 +41,23 @@ export class HUD {
     if (!this.isVisible) return;
     
     this.frames++;
-    const delta = now - this.lastTime;
-    if (delta >= 1000) {
-      this.elFps.textContent = Math.round((this.frames * 1000) / delta);
-      this.frames = 0;
-      this.lastTime = now;
-    }
+    
+    // Throttle DOM update tiap 100ms (10fps)
+    if (now - this.lastUpdate >= 100) {
+      const delta = now - this.lastTime;
+      if (delta >= 1000) {
+        this.elFps.textContent = Math.round((this.frames * 1000) / delta);
+        this.frames = 0;
+        this.lastTime = now;
+      }
 
-    this.elHands.textContent = handsCount;
-    this.elGesture.textContent = gestureData.state;
-    this.elPinch.textContent = gestureData.dNorm ? gestureData.dNorm.toFixed(3) : '-';
-    this.elScale.textContent = scale.toFixed(2) + 'x';
+      this.elHands.textContent = handsCount;
+      this.elGesture.textContent = gestureData.state;
+      this.elPinch.textContent = gestureData.dNorm ? gestureData.dNorm.toFixed(3) : '-';
+      this.elScale.textContent = scale.toFixed(2) + 'x';
+      
+      this.lastUpdate = now;
+    }
   }
 }
 

@@ -1,6 +1,6 @@
 /*
   main.js
-  Tujuan     : Orkestrator Fase E — Kamera, Skeleton, Kursor, Gestur, Transform, HUD, Calibration.
+  Tujuan     : Orkestrator Fase F — Optimasi performa canvas & sinkronisasi modul.
   Dependensi : config.js, camera.js, tracker.js, cursor.js, gesture.js, transform.js, hud.js, calibration.js
 */
 
@@ -13,7 +13,6 @@ import { TransformController } from './transform.js';
 import { HUD } from './hud.js';
 import { Calibration } from './calibration.js';
 
-// Load konfigurasi sebelum inisialisasi modul
 loadConfigFromStorage();
 
 // ---- DOM refs -------------------------------------------------------------
@@ -23,7 +22,11 @@ const stageEl = document.getElementById('stage');
 const statusEl = document.getElementById('status');
 const startBtn = document.getElementById('startBtn');
 const zoomTargetEl = document.getElementById('zoom-target');
-const ctx = canvasEl.getContext('2d');
+
+// Gunakan context 2d dengan optimasi performa
+// desynchronized: true mengurangi latensi rendering di Chrome
+// alpha: false menghemat compositing time
+const ctx = canvasEl.getContext('2d', { alpha: false, desynchronized: true });
 
 // ---- Runtime state --------------------------------------------------------
 let stream = null;
@@ -125,7 +128,9 @@ function drawLabel(landmarks, text, color) {
 
 // ---- Render ---------------------------------------------------------------
 function render(result, now) {
-  ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+  // Karena alpha: false, clear pakai fillRect warna hitam (background video)
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
 
   const { landmarks, handedness } = result;
 
@@ -164,7 +169,6 @@ function render(result, now) {
   
   transform.update(gestureData, canvasEl.width, canvasEl.height);
 
-  // Update HUD & Calibration Tick
   hud.update(now, landmarks.length, gestureData, transform.currentScale);
   calibration.tick(now, gestureData);
 }
@@ -206,7 +210,7 @@ async function boot() {
   }
 
   syncCanvasToVideo();
-  setStatus('Kamera aktif. Memuat model…', 'warn');
+  setStatus('Kamera aktif. Memuat model (Lite)…', 'warn');
 
   try {
     const created = await createHandTracker(CONFIG, (msg) => setStatus(msg, 'warn'));
