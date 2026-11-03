@@ -26,15 +26,23 @@ export const CONFIG = {
     frameRate: { ideal: 30, max: 60 }
   },
 
+  // Konfigurasi Kursor Virtual (Fase B)
+  CURSOR: {
+    EMA_ALPHA: 0.5,         // 0 = sangat halus (lag), 1 = instan (goyang)
+    HAND_SWITCH_HYSTERESIS: 0.15, // skor minimal selisih untuk pindah tangan
+    RADIUS: 14,             // radius luar kursor (px)
+    COLOR_OUTER: 'rgba(255, 255, 255, 0.85)',
+    COLOR_INNER: '#4d6bfe'
+  },
+
   // Koneksi tulang tangan (indeks landmark MediaPipe Hands, 0 = wrist).
-  // Sumber: dokumentasi MediaPipe Hands — 21 landmark.
   HAND_CONNECTIONS: [
-    [0, 1], [1, 2], [2, 3], [3, 4],          // jempol
-    [0, 5], [5, 6], [6, 7], [7, 8],          // telunjuk
-    [5, 9], [9, 10], [10, 11], [11, 12],     // tengah
-    [9, 13], [13, 14], [14, 15], [15, 16],   // manis
-    [13, 17], [17, 18], [18, 19], [19, 20],  // kelingking
-    [0, 17]                                  // pangkal telapak
+    [0, 1], [1, 2], [2, 3], [3, 4],
+    [0, 5], [5, 6], [6, 7], [7, 8],
+    [5, 9], [9, 10], [10, 11], [11, 12],
+    [9, 13], [13, 14], [14, 15], [15, 16],
+    [13, 17], [17, 18], [18, 19], [19, 20],
+    [0, 17]
   ],
 
   // Warna per tangan (maks 2): [tulang, titik, label background]

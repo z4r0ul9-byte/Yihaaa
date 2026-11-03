@@ -1,16 +1,14 @@
 /*
   main.js
-  Tujuan     : Orkestrator Fase A — init kamera, init tracker, rAF loop,
-               render skeleton 21 landmark + label kiri/kanan.
-  Dependensi : config.js, camera.js, tracker.js
-  Catatan    : - Tidak ada smoothing / gesture / cursor (fase berikutnya).
-               - Mirroring x dilakukan saat draw (bukan CSS canvas) supaya
-                 label teks "KANAN"/"KIRI" tidak terbalik.
+  Tujuan     : Orkestrator Fase B — init kamera, tracker, kursor, dan loop render.
+  Dependensi : config.js, camera.js, tracker.js, cursor.js
+  Catatan    : Kursor digambar setelah skeleton agar selalu berada di lapisan atas.
 */
 
 import { CONFIG } from './config.js';
 import { startCamera, stopCamera } from './camera.js';
 import { createHandTracker, detectHands } from './tracker.js';
+import { Cursor } from './cursor.js';
 
 // ---- DOM refs -------------------------------------------------------------
 const videoEl = document.getElementById('video');
@@ -26,6 +24,9 @@ let landmarker = null;
 let rafId = 0;
 let lastVideoTime = -1;
 let running = false;
+
+// ---- Modul Fase B ---------------------------------------------------------
+const cursor = new Cursor(CONFIG.CURSOR);
 
 // ---- UI helpers -----------------------------------------------------------
 function setStatus(text, kind = '') {
@@ -45,20 +46,10 @@ function syncCanvasToVideo() {
   if (!w || !h) return;
   canvasEl.width = w;
   canvasEl.height = h;
-  // Samakan aspect-ratio container dengan aspect-ratio video → object-fit:cover
-  // menjadi exact fit, landmark tidak terdistorsi.
   stageEl.style.aspectRatio = `${w} / ${h}`;
 }
 
 // ---- Draw helpers ---------------------------------------------------------
-
-/**
- * Konversi landmark (0..1, koordinat video raw) ke koordinat canvas.
- * Mirror x karena kamera depan: landmark x di video = kebalikan dari yang
- * dilihat user di layar (video di-mirror via CSS).
- * @param {{x:number,y:number}} lm
- * @returns {[number, number]}
- */
 function toCanvasXY(lm) {
   const x = (1 - lm.x) * canvasEl.width;
   const y = lm.y * canvasEl.height;
@@ -97,12 +88,6 @@ function drawSkeleton(landmarks, connections, color, lw, r) {
   }
 }
 
-/**
- * Label tangan. Label MediaPipe diasumsikan untuk input mirror (selfie);
- * karena kita memberi frame video raw (belum mirror), label returned
- * terbalik relatif ke user. Kita swap supaya "KANAN"/"KIRI" sesuai tangan user.
- * @param {string} rawCategoryName 'Left' | 'Right'
- */
 function labelForUser(rawCategoryName) {
   if (rawCategoryName === 'Left') return 'KANAN';
   if (rawCategoryName === 'Right') return 'KIRI';
@@ -110,7 +95,6 @@ function labelForUser(rawCategoryName) {
 }
 
 function drawLabel(landmarks, text, color) {
-  // Anchor: wrist (landmark 0), teks sedikit di atasnya.
   const [wx, wy] = toCanvasXY(landmarks[0]);
   const fontSize = Math.max(12, Math.round(canvasEl.width * 0.024));
   ctx.font = `600 ${fontSize}px system-ui, sans-serif`;
@@ -128,7 +112,12 @@ function drawLabel(landmarks, text, color) {
 
   ctx.fillStyle = color.label;
   ctx.beginPath();
-  ctx.roundRect(boxX, boxY, boxW, boxH, 6);
+  // Fallback jika ctx.roundRect tidak didukung (Chrome lama)
+  if (ctx.roundRect) {
+      ctx.roundRect(boxX, boxY, boxW, boxH, 6);
+  } else {
+      ctx.rect(boxX, boxY, boxW, boxH);
+  }
   ctx.fill();
 
   ctx.fillStyle = '#ffffff';
@@ -137,40 +126,43 @@ function drawLabel(landmarks, text, color) {
 
 // ---- Render ---------------------------------------------------------------
 function render(result) {
-  // Clear frame sebelumnya.
   ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
 
   const { landmarks, handedness } = result;
-  if (!landmarks.length) return;
 
-  const lw = strokeWidth();
-  const r = pointRadius();
+  // 1. Gambar Skeleton
+  if (landmarks.length > 0) {
+    const lw = strokeWidth();
+    const r = pointRadius();
 
-  for (let i = 0; i < landmarks.length; i++) {
-    const lms = landmarks[i];
-    if (!lms || lms.length < 21) continue;
+    for (let i = 0; i < landmarks.length; i++) {
+      const lms = landmarks[i];
+      if (!lms || lms.length < 21) continue;
 
-    const color = CONFIG.HAND_COLORS[i % CONFIG.HAND_COLORS.length];
-    drawSkeleton(lms, CONFIG.HAND_CONNECTIONS, color, lw, r);
+      const color = CONFIG.HAND_COLORS[i % CONFIG.HAND_COLORS.length];
+      drawSkeleton(lms, CONFIG.HAND_CONNECTIONS, color, lw, r);
 
-    const hn = handedness[i] && handedness[i][0];
-    const rawName = hn && hn.categoryName ? hn.categoryName : '';
-    drawLabel(lms, labelForUser(rawName), color);
+      const hn = handedness[i] && handedness[i][0];
+      const rawName = hn && hn.categoryName ? hn.categoryName : '';
+      drawLabel(lms, labelForUser(rawName), color);
+    }
   }
+
+  // 2. Update & Gambar Kursor
+  cursor.update(landmarks, handedness, canvasEl.width, canvasEl.height);
+  cursor.draw(ctx);
 }
 
 // ---- Detection loop -------------------------------------------------------
 function loop(now) {
   if (!running) return;
 
-  // Hanya proses frame baru (currentTime berubah). Menghemat komputasi.
   if (videoEl.readyState >= 2 && videoEl.currentTime !== lastVideoTime) {
     lastVideoTime = videoEl.currentTime;
     try {
       const result = detectHands(landmarker, videoEl, now);
       render(result);
     } catch (err) {
-      // Hentikan loop dan laporkan sekali agar tidak spam error.
       running = false;
       cancelAnimationFrame(rafId);
       rafId = 0;
@@ -208,7 +200,7 @@ async function boot() {
     const created = await createHandTracker(CONFIG, (msg) => setStatus(msg, 'warn'));
     landmarker = created.landmarker;
     setStatus(
-      'Siap. Deteksi tangan berjalan (delegate ' + created.delegate + ').',
+      'Siap. Deteksi berjalan (delegate ' + created.delegate + '). Kursor aktif.',
       'ok'
     );
   } catch (err) {
@@ -231,10 +223,8 @@ startBtn.addEventListener('click', () => {
   boot();
 });
 
-// Re-sync canvas kalau video resize (rotasi layar / ganti constraint).
 videoEl.addEventListener('resize', syncCanvasToVideo);
 
-// Bersihkan resource saat tab ditinggalkan.
 window.addEventListener('pagehide', () => {
   running = false;
   if (rafId) cancelAnimationFrame(rafId);
@@ -242,11 +232,9 @@ window.addEventListener('pagehide', () => {
   stream = null;
 });
 
-// Cek secure context di awal supaya user tidak kaget setelah klik tombol.
 if (!window.isSecureContext) {
   setStatus(
-    'Halaman bukan secure context. Kamera hanya bisa diakses via http://localhost ' +
-      'atau https://. Akses via IP LAN tidak akan berfungsi.',
+    'Halaman bukan secure context. Kamera hanya bisa diakses via http://localhost atau https://.',
     'error'
   );
   setStartBtn({ disabled: true, label: 'Butuh Secure Context' });
