@@ -1,7 +1,7 @@
 /*
   main.js
-  Tujuan     : Orkestrator Fase C — Kamera, Skeleton, Kursor, Gestur Pinch, dan Zoom.
-  Dependensi : config.js, camera.js, tracker.js, cursor.js, gesture.js, zoom.js
+  Tujuan     : Orkestrator Fase D — Kamera, Skeleton, Kursor, Gestur, Zoom & Pan.
+  Dependensi : config.js, camera.js, tracker.js, cursor.js, gesture.js, transform.js
 */
 
 import { CONFIG } from './config.js';
@@ -9,7 +9,7 @@ import { startCamera, stopCamera } from './camera.js';
 import { createHandTracker, detectHands } from './tracker.js';
 import { Cursor } from './cursor.js';
 import { GestureDetector } from './gesture.js';
-import { ZoomController } from './zoom.js';
+import { TransformController } from './transform.js';
 
 // ---- DOM refs -------------------------------------------------------------
 const videoEl = document.getElementById('video');
@@ -30,7 +30,7 @@ let running = false;
 // ---- Modul ----------------------------------------------------------------
 const cursor = new Cursor(CONFIG.CURSOR);
 const gesture = new GestureDetector(CONFIG.GESTURE);
-const zoom = new ZoomController(zoomTargetEl, CONFIG.ZOOM);
+const transform = new TransformController(zoomTargetEl, CONFIG.ZOOM, CONFIG.PAN);
 
 // ---- UI helpers -----------------------------------------------------------
 function setStatus(text, kind = '') {
@@ -149,8 +149,7 @@ function render(result) {
   cursor.update(landmarks, handedness, canvasEl.width, canvasEl.height);
   cursor.draw(ctx);
 
-  // 3. Update Gestur & Zoom
-  // Ambil landmark dari primary hand yang dipilih kursor
+  // 3. Update Gestur, Transform (Zoom & Pan)
   let activeHandLandmarks = null;
   if (cursor.primaryHandIndex !== -1 && landmarks[cursor.primaryHandIndex]) {
     activeHandLandmarks = landmarks[cursor.primaryHandIndex];
@@ -158,14 +157,13 @@ function render(result) {
 
   const gestureData = gesture.update(activeHandLandmarks);
   
-  // Update UI Status berdasarkan gestur
   if (gestureData.state === 'PINCHED') {
-    setStatus(`Mencubit (Skala: ${zoom.currentScale.toFixed(2)}x)`, 'pinch');
-    zoom.update(gestureData);
+    setStatus(`Mencubit (Skala: ${transform.currentScale.toFixed(2)}x)`, 'pinch');
   } else {
-    if (running) setStatus('Siap. Deteksi berjalan. Cubit untuk zoom.', 'ok');
-    zoom.update(gestureData); // Cuma untuk sinkronisasi startScale
+    if (running) setStatus('Siap. Cubit & geser untuk Drag/Zoom.', 'ok');
   }
+  
+  transform.update(gestureData, canvasEl.width, canvasEl.height);
 }
 
 // ---- Detection loop -------------------------------------------------------
@@ -210,7 +208,7 @@ async function boot() {
   try {
     const created = await createHandTracker(CONFIG, (msg) => setStatus(msg, 'warn'));
     landmarker = created.landmarker;
-    setStatus('Siap. Deteksi berjalan (delegate ' + created.delegate + '). Cubit untuk zoom.', 'ok');
+    setStatus('Siap. Deteksi berjalan (delegate ' + created.delegate + ').', 'ok');
   } catch (err) {
     stopCamera(stream);
     stream = null;

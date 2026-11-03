@@ -29,16 +29,19 @@ export const CONFIG = {
     COLOR_INNER: '#4d6bfe'
   },
 
-  // Konfigurasi Gestur Pinch (Fase C)
   GESTURE: {
     PINCH_IN: 0.25,   // Threshold masuk (cubit)
     PINCH_OUT: 0.35,  // Threshold keluar (lepas) -> Hysteresis
   },
 
-  // Konfigurasi Zoom (Fase C)
   ZOOM: {
     MIN_SCALE: 0.5,
     MAX_SCALE: 4.0
+  },
+
+  // Konfigurasi Drag / Pan (Fase D)
+  PAN: {
+    EMA_ALPHA: 0.4 // Smoothing untuk translasi (geser). 0 = lag, 1 = instan.
   },
 
   HAND_CONNECTIONS: [
