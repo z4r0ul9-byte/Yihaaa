@@ -1,7 +1,6 @@
 /*
   main.js
-  Tujuan     : Orkestrator Fase F — Fix canvas transparan menutupi video.
-  Dependensi : config.js, camera.js, tracker.js, cursor.js, gesture.js, transform.js, hud.js, calibration.js
+  Tujuan     : Orkestrator Fase F — Fix rendering & mirroring agar tembus 20+ FPS.
 */
 
 import { CONFIG, loadConfigFromStorage } from './config.js';
@@ -15,43 +14,35 @@ import { Calibration } from './calibration.js';
 
 loadConfigFromStorage();
 
-// ---- DOM refs -------------------------------------------------------------
 const videoEl = document.getElementById('video');
 const canvasEl = document.getElementById('overlay');
 const stageEl = document.getElementById('stage');
 const statusEl = document.getElementById('status');
 const startBtn = document.getElementById('startBtn');
 const zoomTargetEl = document.getElementById('zoom-target');
-
-// FIX: Hapus 'desynchronized: true'. Flag ini bikin canvas transparan jadi item di Android.
 const ctx = canvasEl.getContext('2d');
 
-// ---- Runtime state --------------------------------------------------------
 let stream = null;
 let landmarker = null;
 let rafId = 0;
 let lastVideoTime = -1;
 let running = false;
 
-// ---- Modul ----------------------------------------------------------------
 const cursor = new Cursor(CONFIG.CURSOR);
 const gesture = new GestureDetector(CONFIG.GESTURE);
 const transform = new TransformController(zoomTargetEl, CONFIG.ZOOM, CONFIG.PAN);
 const hud = new HUD();
 const calibration = new Calibration(CONFIG, cursor, gesture, transform);
 
-// ---- UI helpers -----------------------------------------------------------
 function setStatus(text, kind = '') {
   statusEl.textContent = text;
   statusEl.className = 'status' + (kind ? ' ' + kind : '');
 }
-
 function setStartBtn({ disabled, label }) {
   startBtn.disabled = disabled;
   startBtn.textContent = label;
 }
 
-// ---- Canvas sizing --------------------------------------------------------
 function syncCanvasToVideo() {
   const w = videoEl.videoWidth;
   const h = videoEl.videoHeight;
@@ -61,9 +52,9 @@ function syncCanvasToVideo() {
   stageEl.style.aspectRatio = `${w} / ${h}`;
 }
 
-// ---- Draw helpers ---------------------------------------------------------
+// Karena CSS sudah mirror, kita pake koordinat asli
 function toCanvasXY(lm) {
-  return [(1 - lm.x) * canvasEl.width, lm.y * canvasEl.height];
+  return [lm.x * canvasEl.width, lm.y * canvasEl.height];
 }
 
 function strokeWidth() { return Math.max(3, Math.round(canvasEl.width * 0.004)); }
@@ -103,16 +94,11 @@ function drawLabel(landmarks, text, color) {
   const [wx, wy] = toCanvasXY(landmarks[0]);
   const fontSize = Math.max(12, Math.round(canvasEl.width * 0.024));
   ctx.font = `600 ${fontSize}px system-ui, sans-serif`;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'bottom';
-
-  const padX = Math.round(fontSize * 0.5);
-  const padY = Math.round(fontSize * 0.3);
   const metrics = ctx.measureText(text);
-  const boxW = metrics.width + padX * 2;
-  const boxH = fontSize + padY * 2;
+  const boxW = metrics.width + 20;
+  const boxH = fontSize + 10;
   const boxX = wx - boxW / 2;
-  const boxY = wy - fontSize - padY * 2 - 6;
+  const boxY = wy - fontSize - 10 - 6;
 
   ctx.fillStyle = color.label;
   ctx.beginPath();
@@ -120,14 +106,19 @@ function drawLabel(landmarks, text, color) {
   else ctx.rect(boxX, boxY, boxW, boxH);
   ctx.fill();
 
+  ctx.save();
+  // Karena canvas di-mirror via CSS, teks harus di-flip balik secara lokal
+  ctx.translate(wx, boxY + boxH / 2);
+  ctx.scale(-1, 1);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
   ctx.fillStyle = '#ffffff';
-  ctx.fillText(text, boxX + padX, boxY + boxH - padY);
+  ctx.fillText(text, 0, 0);
+  ctx.restore();
 }
 
-// ---- Render ---------------------------------------------------------------
 function render(result, now) {
   ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
-
   const { landmarks, handedness } = result;
 
   if (landmarks.length > 0) {
@@ -137,7 +128,6 @@ function render(result, now) {
     for (let i = 0; i < landmarks.length; i++) {
       const lms = landmarks[i];
       if (!lms || lms.length < 21) continue;
-
       const color = CONFIG.HAND_COLORS[i % CONFIG.HAND_COLORS.length];
       drawSkeleton(lms, CONFIG.HAND_CONNECTIONS, color, lw, r);
 
@@ -147,6 +137,7 @@ function render(result, now) {
     }
   }
 
+  // Cursor update (koordinat asli, CSS yang nge-mirror)
   cursor.update(landmarks, handedness, canvasEl.width, canvasEl.height);
   cursor.draw(ctx);
 
@@ -159,20 +150,17 @@ function render(result, now) {
   
   if (gestureData.state === 'PINCHED') {
     setStatus(`Mencubit (Skala: ${transform.currentScale.toFixed(2)}x)`, 'pinch');
-  } else {
-    if (running) setStatus('Siap. Cubit & geser untuk Drag/Zoom.', 'ok');
+  } else if (running) {
+    setStatus('Siap. Cubit & geser untuk Drag/Zoom.', 'ok');
   }
   
   transform.update(gestureData, canvasEl.width, canvasEl.height);
-
   hud.update(now, landmarks.length, gestureData, transform.currentScale);
   calibration.tick(now, gestureData);
 }
 
-// ---- Detection loop -------------------------------------------------------
 function loop(now) {
   if (!running) return;
-
   if (videoEl.readyState >= 2 && videoEl.currentTime !== lastVideoTime) {
     lastVideoTime = videoEl.currentTime;
     try {
@@ -187,11 +175,9 @@ function loop(now) {
       return;
     }
   }
-
   rafId = requestAnimationFrame(loop);
 }
 
-// ---- Boot sequence --------------------------------------------------------
 async function boot() {
   startBtn.disabled = true;
   setStartBtn({ disabled: true, label: 'Memuat…' });
@@ -226,7 +212,6 @@ async function boot() {
   rafId = requestAnimationFrame(loop);
 }
 
-// ---- Wiring ---------------------------------------------------------------
 startBtn.addEventListener('click', () => {
   if (running || startBtn.disabled) return;
   boot();

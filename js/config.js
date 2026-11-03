@@ -1,29 +1,25 @@
 /*
   config.js
-  Tujuan     : Pusat konstanta & threshold.
-  Dependensi : Tidak ada.
-  Catatan    : URL model dikembalikan ke versi standar (yang terbukti jalan).
+  Tujuan     : Optimasi deteksi (1 tangan) dan resolusi kamera.
 */
 
 export const CONFIG = {
-  // MediaPipe Tasks Vision
   WASM_ROOT: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm',
   TASKS_VISION_ESM: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm',
-  
-  // REVERT: Balik ke model standar yang terbukti ada di server Google
   MODEL_URL: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
 
-  NUM_HANDS: 2,
+  // OPTIMASI: Set 1 tangan saja untuk mengurangi beban model.
+  NUM_HANDS: 1, 
   MIN_HAND_DETECTION_CONFIDENCE: 0.5,
   MIN_HAND_PRESENCE_CONFIDENCE: 0.5,
   MIN_TRACKING_CONFIDENCE: 0.5,
 
   CAMERA: {
     facingMode: 'user',
-    // Tetap pakai 480p untuk optimasi performa
-    width: { ideal: 640 },
-    height: { ideal: 480 },
-    frameRate: { ideal: 30, max: 60 }
+    // Gunakan max, bukan ideal, agar HP tidak ngasih resolusi lebih tinggi
+    width: { max: 640 },
+    height: { max: 480 },
+    frameRate: { max: 30 }
   },
 
   CURSOR: {
@@ -39,22 +35,13 @@ export const CONFIG = {
     PINCH_OUT: 0.35,
   },
 
-  ZOOM: {
-    MIN_SCALE: 0.5,
-    MAX_SCALE: 4.0
-  },
-
-  PAN: {
-    EMA_ALPHA: 0.4
-  },
+  ZOOM: { MIN_SCALE: 0.5, MAX_SCALE: 4.0 },
+  PAN: { EMA_ALPHA: 0.4 },
 
   HAND_CONNECTIONS: [
-    [0, 1], [1, 2], [2, 3], [3, 4],
-    [0, 5], [5, 6], [6, 7], [7, 8],
-    [5, 9], [9, 10], [10, 11], [11, 12],
-    [9, 13], [13, 14], [14, 15], [15, 16],
-    [13, 17], [17, 18], [18, 19], [19, 20],
-    [0, 17]
+    [0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8],
+    [5, 9], [9, 10], [10, 11], [11, 12], [9, 13], [13, 14], [14, 15], [15, 16],
+    [13, 17], [17, 18], [18, 19], [19, 20], [0, 17]
   ],
 
   HAND_COLORS: [
@@ -71,16 +58,10 @@ export function loadConfigFromStorage() {
     if (data.GESTURE) Object.assign(CONFIG.GESTURE, data.GESTURE);
     if (data.CURSOR && data.CURSOR.EMA_ALPHA) CONFIG.CURSOR.EMA_ALPHA = data.CURSOR.EMA_ALPHA;
     if (data.PAN && data.PAN.EMA_ALPHA) CONFIG.PAN.EMA_ALPHA = data.PAN.EMA_ALPHA;
-  } catch (e) {
-    console.warn('Gagal memuat konfigurasi', e);
-  }
+  } catch (e) {}
 }
 
 export function saveConfigToStorage() {
-  const data = {
-    GESTURE: CONFIG.GESTURE,
-    CURSOR: { EMA_ALPHA: CONFIG.CURSOR.EMA_ALPHA },
-    PAN: { EMA_ALPHA: CONFIG.PAN.EMA_ALPHA }
-  };
+  const data = { GESTURE: CONFIG.GESTURE, CURSOR: { EMA_ALPHA: CONFIG.CURSOR.EMA_ALPHA }, PAN: { EMA_ALPHA: CONFIG.PAN.EMA_ALPHA } };
   localStorage.setItem('handGestureConfig', JSON.stringify(data));
 }
