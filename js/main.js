@@ -1,6 +1,7 @@
 /*
   main.js
-  Tujuan     : Orkestrator Dual Mode (Rope & Block).
+  Tujuan     : Orkestrator Dual Mode (Rope & Balok 3D).
+  Dependensi : config.js, camera.js, tracker.js, cursor.js, gesture.js, rope.js, block.js, hud.js, calibration.js
 */
 
 import { CONFIG, loadConfigFromStorage } from './config.js';
@@ -44,11 +45,11 @@ const calibration = new Calibration(CONFIG, cursor, gesture);
 btnToggleMode.addEventListener('click', () => {
   if (currentMode === 'rope') {
     currentMode = 'block';
-    btnToggleMode.textContent = 'Mode: Balok Glow';
+    btnToggleMode.textContent = 'Mode: Balok 3D';
     btnToggleMode.style.background = '#00e5ff';
     btnToggleMode.style.color = '#000';
     btnToggleMode.style.borderColor = '#00e5ff';
-    modeHint.textContent = 'Balok Dimensi Glow aktif. Gerakkan dua tangan untuk melebarkan balok.';
+    modeHint.textContent = 'Balok Dimensi 3D aktif. Gerakkan dua tangan untuk melebarkan balok.';
   } else {
     currentMode = 'rope';
     btnToggleMode.textContent = 'Mode: Rope';
@@ -191,7 +192,7 @@ function render(result, now) {
   if (gestureData.state === 'PINCHED') {
     setStatus(`Mencubit`, 'pinch');
   } else if (running) {
-    setStatus(`Siap. Mode: ${currentMode === 'rope' ? 'Tali Karet' : 'Balok Glow'}.`, 'ok');
+    setStatus(`Siap. Mode: ${currentMode === 'rope' ? 'Tali Karet' : 'Balok 3D'}.`, 'ok');
   }
 
   hud.update(now, landmarks.length, gestureData);
