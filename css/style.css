@@ -1,0 +1,143 @@
+/*
+  style.css
+  Tujuan     : Styling mobile-first, dark default, no-overflow, tombol ≥44px.
+  Dependensi : Tidak ada.
+  Catatan    : Video di-mirror (kamera depan). Canvas overlay TIDAK di-mirror;
+               mirroring landmark dilakukan di JS supaya label teks tetap terbaca.
+*/
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #0b0b0e;
+  color: #e6e6ea;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+body {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: max(10px, env(safe-area-inset-top)) 12px
+           max(10px, env(safe-area-inset-bottom)) 12px;
+  gap: 10px;
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.phase {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #4d6bfe;
+  color: #fff;
+}
+
+.status {
+  font-size: 0.85rem;
+  line-height: 1.4;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #17171c;
+  border: 1px solid #26262e;
+  color: #b9b9c4;
+}
+
+.status.ok    { border-color: #2a6b3d; background: #10231a; color: #b7e7c8; }
+.status.warn  { border-color: #6b5a1a; background: #241f0c; color: #f0dc9a; }
+.status.error { border-color: #6b1f1f; background: #240b0b; color: #f2b8b8; }
+
+.stage-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid #26262e;
+  /* aspect-ratio akan di-override via JS setelah metadata video siap */
+}
+
+.stage video,
+.stage canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.stage video {
+  object-fit: cover;
+  /* mirror kamera depan supaya terasa seperti cermin */
+  transform: scaleX(-1);
+}
+
+.stage canvas {
+  /* TIDAK di-mirror — mirroring dilakukan di draw agar label teks tidak terbalik */
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #86868f;
+  text-align: center;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.btn {
+  flex: 1;
+  min-height: 48px;
+  border: none;
+  border-radius: 12px;
+  background: #4d6bfe;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.btn:active { filter: brightness(0.9); }
+
+.btn:disabled {
+  background: #2c2c35;
+  color: #6d6d78;
+  cursor: not-allowed;
+}
+

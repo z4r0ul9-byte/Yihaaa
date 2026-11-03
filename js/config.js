@@ -1,0 +1,46 @@
+/*
+  config.js
+  Tujuan     : Pusat konstanta & threshold. Satu sumber kebenaran untuk semua modul.
+  Dependensi : Tidak ada.
+  Catatan    : URL di-pin ke versi library tertentu supaya tidak breaking kalau CDN update.
+*/
+
+export const CONFIG = {
+  // MediaPipe Tasks Vision — versi dipin (verifikasi: @mediapipe/tasks-vision 0.10.14)
+  WASM_ROOT: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm',
+  TASKS_VISION_ESM: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm',
+  MODEL_URL:
+    'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+
+  // Konfigurasi HandLandmarker
+  NUM_HANDS: 2,
+  MIN_HAND_DETECTION_CONFIDENCE: 0.5,
+  MIN_HAND_PRESENCE_CONFIDENCE: 0.5,
+  MIN_TRACKING_CONFIDENCE: 0.5,
+
+  // Konfigurasi kamera
+  CAMERA: {
+    facingMode: 'user',
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
+    frameRate: { ideal: 30, max: 60 }
+  },
+
+  // Koneksi tulang tangan (indeks landmark MediaPipe Hands, 0 = wrist).
+  // Sumber: dokumentasi MediaPipe Hands — 21 landmark.
+  HAND_CONNECTIONS: [
+    [0, 1], [1, 2], [2, 3], [3, 4],          // jempol
+    [0, 5], [5, 6], [6, 7], [7, 8],          // telunjuk
+    [5, 9], [9, 10], [10, 11], [11, 12],     // tengah
+    [9, 13], [13, 14], [14, 15], [15, 16],   // manis
+    [13, 17], [17, 18], [18, 19], [19, 20],  // kelingking
+    [0, 17]                                  // pangkal telapak
+  ],
+
+  // Warna per tangan (maks 2): [tulang, titik, label background]
+  HAND_COLORS: [
+    { bone: '#63f5a1', point: '#e6ffe9', label: '#0f6b38' },
+    { bone: '#63b9f5', point: '#e6f3ff', label: '#0f4d6b' }
+  ]
+};
+
