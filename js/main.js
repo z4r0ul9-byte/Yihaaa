@@ -1,6 +1,6 @@
 /*
   main.js
-  Tujuan     : Orkestrator Fase F — Optimasi performa canvas & sinkronisasi modul.
+  Tujuan     : Orkestrator Fase F — Fix canvas menutupi video.
   Dependensi : config.js, camera.js, tracker.js, cursor.js, gesture.js, transform.js, hud.js, calibration.js
 */
 
@@ -23,10 +23,8 @@ const statusEl = document.getElementById('status');
 const startBtn = document.getElementById('startBtn');
 const zoomTargetEl = document.getElementById('zoom-target');
 
-// Gunakan context 2d dengan optimasi performa
-// desynchronized: true mengurangi latensi rendering di Chrome
-// alpha: false menghemat compositing time
-const ctx = canvasEl.getContext('2d', { alpha: false, desynchronized: true });
+// FIX: Hapus alpha:false. Canvas overlay HARUS transparan agar video di bawahnya kelihatan.
+const ctx = canvasEl.getContext('2d', { desynchronized: true });
 
 // ---- Runtime state --------------------------------------------------------
 let stream = null;
@@ -128,9 +126,8 @@ function drawLabel(landmarks, text, color) {
 
 // ---- Render ---------------------------------------------------------------
 function render(result, now) {
-  // Karena alpha: false, clear pakai fillRect warna hitam (background video)
-  ctx.fillStyle = '#000000';
-  ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
+  // FIX: Kembalikan ke clearRect agar canvas transparan dan video kelihatan
+  ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
 
   const { landmarks, handedness } = result;
 
@@ -210,7 +207,7 @@ async function boot() {
   }
 
   syncCanvasToVideo();
-  setStatus('Kamera aktif. Memuat model (Lite)…', 'warn');
+  setStatus('Kamera aktif. Memuat model…', 'warn');
 
   try {
     const created = await createHandTracker(CONFIG, (msg) => setStatus(msg, 'warn'));
@@ -249,4 +246,3 @@ if (!window.isSecureContext) {
   setStatus('Halaman bukan secure context. Gunakan http://localhost atau https://.', 'error');
   setStartBtn({ disabled: true, label: 'Butuh Secure Context' });
 }
-
