@@ -1,8 +1,6 @@
 /*
   hud.js
-  Tujuan     : Menampilkan metrik performa dan deteksi.
-  Dependensi : Tidak ada.
-  Catatan    : Update DOM di-throttle maksimal 10x/detik agar tidak membebani main thread.
+  Tujuan     : Debug HUD, di-throttle 10fps agar hemat performa.
 */
 
 export class HUD {
@@ -12,7 +10,6 @@ export class HUD {
     this.elHands = document.getElementById('hud-hands');
     this.elGesture = document.getElementById('hud-gesture');
     this.elPinch = document.getElementById('hud-pinch');
-    this.elScale = document.getElementById('hud-scale');
     
     this.btnToggle = document.getElementById('btn-toggle-hud');
     this.isVisible = true;
@@ -37,12 +34,9 @@ export class HUD {
     }
   }
 
-  update(now, handsCount, gestureData, scale) {
+  update(now, handsCount, gestureData) {
     if (!this.isVisible) return;
-    
     this.frames++;
-    
-    // Throttle DOM update tiap 100ms (10fps)
     if (now - this.lastUpdate >= 100) {
       const delta = now - this.lastTime;
       if (delta >= 1000) {
@@ -50,14 +44,10 @@ export class HUD {
         this.frames = 0;
         this.lastTime = now;
       }
-
       this.elHands.textContent = handsCount;
       this.elGesture.textContent = gestureData.state;
       this.elPinch.textContent = gestureData.dNorm ? gestureData.dNorm.toFixed(3) : '-';
-      this.elScale.textContent = scale.toFixed(2) + 'x';
-      
       this.lastUpdate = now;
     }
   }
 }
-

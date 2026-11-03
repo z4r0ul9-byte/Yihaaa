@@ -1,6 +1,7 @@
 /*
   main.js
-  Tujuan     : Orkestrator Fase F — Fix rendering & mirroring agar tembus 20+ FPS.
+  Tujuan     : Orkestrator Fase Rope — Menghubungkan kamera, kursor, gestur, dan tali karet.
+  Dependensi : config.js, camera.js, tracker.js, cursor.js, gesture.js, rope.js, hud.js, calibration.js
 */
 
 import { CONFIG, loadConfigFromStorage } from './config.js';
@@ -8,7 +9,7 @@ import { startCamera, stopCamera } from './camera.js';
 import { createHandTracker, detectHands } from './tracker.js';
 import { Cursor } from './cursor.js';
 import { GestureDetector } from './gesture.js';
-import { TransformController } from './transform.js';
+import { RopeController } from './rope.js';
 import { HUD } from './hud.js';
 import { Calibration } from './calibration.js';
 
@@ -19,7 +20,7 @@ const canvasEl = document.getElementById('overlay');
 const stageEl = document.getElementById('stage');
 const statusEl = document.getElementById('status');
 const startBtn = document.getElementById('startBtn');
-const zoomTargetEl = document.getElementById('zoom-target');
+const ropeCanvas = document.getElementById('rope-canvas');
 const ctx = canvasEl.getContext('2d');
 
 let stream = null;
@@ -30,9 +31,13 @@ let running = false;
 
 const cursor = new Cursor(CONFIG.CURSOR);
 const gesture = new GestureDetector(CONFIG.GESTURE);
-const transform = new TransformController(zoomTargetEl, CONFIG.ZOOM, CONFIG.PAN);
+const rope = new RopeController(ropeCanvas);
 const hud = new HUD();
-const calibration = new Calibration(CONFIG, cursor, gesture, transform);
+const calibration = new Calibration(CONFIG, cursor, gesture);
+
+// Resize canvas tali pas pertama kali dibuka
+setTimeout(() => rope.resize(), 100);
+window.addEventListener('resize', () => rope.resize());
 
 function setStatus(text, kind = '') {
   statusEl.textContent = text;
@@ -52,7 +57,6 @@ function syncCanvasToVideo() {
   stageEl.style.aspectRatio = `${w} / ${h}`;
 }
 
-// Karena CSS sudah mirror, kita pake koordinat asli
 function toCanvasXY(lm) {
   return [lm.x * canvasEl.width, lm.y * canvasEl.height];
 }
@@ -107,9 +111,8 @@ function drawLabel(landmarks, text, color) {
   ctx.fill();
 
   ctx.save();
-  // Karena canvas di-mirror via CSS, teks harus di-flip balik secara lokal
   ctx.translate(wx, boxY + boxH / 2);
-  ctx.scale(-1, 1);
+  ctx.scale(-1, 1); // Un-mirror teks lokal
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#ffffff';
@@ -137,7 +140,6 @@ function render(result, now) {
     }
   }
 
-  // Cursor update (koordinat asli, CSS yang nge-mirror)
   cursor.update(landmarks, handedness, canvasEl.width, canvasEl.height);
   cursor.draw(ctx);
 
@@ -147,15 +149,31 @@ function render(result, now) {
   }
 
   const gestureData = gesture.update(activeHandLandmarks);
+  const isPinching = gestureData.state === 'PINCHED';
   
-  if (gestureData.state === 'PINCHED') {
-    setStatus(`Mencubit (Skala: ${transform.currentScale.toFixed(2)}x)`, 'pinch');
+  if (isPinching) {
+    setStatus(`Mencubit (Tarik tali!)`, 'pinch');
   } else if (running) {
-    setStatus('Siap. Cubit & geser untuk Drag/Zoom.', 'ok');
+    setStatus('Siap. Cubit simpul tali untuk menarik.', 'ok');
+  }
+
+  // Map kursor ke koordinat Canvas Tali
+  // Cursor.x adalah raw (0..width). CSS stage di-mirror, tapi canvas tali TIDAK.
+  // Jadi kita balik X-nya (1 - x).
+  if (cursor.active) {
+    const normX = cursor.x / canvasEl.width;
+    const normY = cursor.y / canvasEl.height;
+    const ropeX = (1 - normX) * ropeCanvas.getBoundingClientRect().width; // Un-mirror
+    const ropeY = normY * ropeCanvas.getBoundingClientRect().height;
+    
+    rope.update(isPinching, ropeX, ropeY);
+  } else {
+    rope.update(false, 0, 0);
   }
   
-  transform.update(gestureData, canvasEl.width, canvasEl.height);
-  hud.update(now, landmarks.length, gestureData, transform.currentScale);
+  rope.draw();
+
+  hud.update(now, landmarks.length, gestureData);
   calibration.tick(now, gestureData);
 }
 
@@ -197,7 +215,7 @@ async function boot() {
   try {
     const created = await createHandTracker(CONFIG, (msg) => setStatus(msg, 'warn'));
     landmarker = created.landmarker;
-    setStatus('Siap. Deteksi berjalan (delegate ' + created.delegate + ').', 'ok');
+    setStatus('Siap. Cubit simpul tali.', 'ok');
   } catch (err) {
     stopCamera(stream);
     stream = null;
