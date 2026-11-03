@@ -1,18 +1,17 @@
-# Hand Gesture — Fase E (Panel Kalibrasi + Debug HUD)
+# Hand Gesture — Fase F (Optimasi Performa & Offline Model)
 
-Aplikasi kini dilengkapi dengan **Debug HUD** melayang di atas video dan **Panel Kalibrasi** interaktif yang bisa diakses langsung dari HP. Semua pengaturan disimpan di `localStorage` sehingga tetap tersimpan meski halaman di-refresh.
+Aplikasi kini dioptimasi secara menyeluruh agar berjalan mulus (≥ 20 FPS) di HP mid-range. Berbagai *bottleneck* seperti resolusi tinggi, DOM update berlebih, dan efek CSS berat telah dihilangkan.
 
-## Fitur Fase E
+## Fitur Fase F (Optimasi)
 
-1. **Debug HUD**: Menampilkan FPS, jumlah tangan, state gestur, jarak pinch ternormalisasi (`dNorm`), dan skala zoom secara real-time. Bisa di-toggle ON/OFF.
-2. **Panel Kalibrasi**: Mengatur `PINCH_IN`, `PINCH_OUT`, `Cursor Alpha`, dan `Pan Alpha` via slider.
-3. **Auto-Calibration**: Fitur cerdas untuk menghitung threshold pinch secara otomatis.
-   - Fase 1 (3 detik): Tangan **terbuka** (jari direntangkan).
-   - Fase 2 (3 detik): Tangan **mencubit** (jempol & telunjuk rapat).
-   - Sistem akan menghitung `avgOpen` dan `avgPinch`, lalu mencari titik tengah yang aman (20% margin) untuk mencegah *flicker*.
-4. **LocalStorage**: Konfigurasi otomatis disimpan, dan ada tombol **Reset** untuk kembali ke pengaturan pabrik.
+1. **Resolusi Kamera 480p**: Constraint diturunkan dari 720p ke 640x480. Ini meringankan beban *decode* video dan transfer memori ke GPU/CPU MediaPipe.
+2. **Model Lite**: Menggunakan `hand_landmarker_lite.task` yang ukurannya lebih kecil dan komputasinya lebih ringan.
+3. **Canvas `desynchronized` & No-Alpha**: `getContext('2d', { alpha: false, desynchronized: true })` membuat Chrome bisa me-render canvas lebih cepat tanpa nunggu sinkronisasi compositor, dan mematikan alpha channel menghemat VRAM.
+4. **HUD Update Throttling**: HUD tidak lagi mengupdate teks DOM 60x per detik, melainkan dibatasi 10x per detik (100ms). Ini mencegah *layout thrashing*.
+5. **Buang CSS Berat**: `backdrop-filter: blur()` di HUD dihapus total karena sangat membebani GPU saat overlay transparan.
+6. **Auto-Fallback**: Jika GPU bermasalah, aplikasi tetap otomatis lari di CPU.
 
-## Struktur Folder
+## Struktur Folder & Model Offline
 
 ```
 
@@ -21,35 +20,32 @@ hand-gesture-app/
 ├── css/
 │   └── style.css
 ├── js/
-│   ├── config.js      # Konstanta & manajemen localStorage
-│   ├── camera.js      # getUserMedia
-│   ├── tracker.js     # HandLandmarker
-│   ├── smoothing.js   # EMA filter
-│   ├── cursor.js      # Kursor & pemilihan tangan
-│   ├── gesture.js     # State machine pinch & pan
-│   ├── transform.js   # Skala & translasi (zoom + drag)
-│   ├── hud.js         # [BARU] Manajemen UI HUD
-│   ├── calibration.js # [BARU] Logika slider & kalibrasi otomatis
-│   └── main.js        # Orkestrator
-└── README.md
+│   ├── config.js      # URL model lite & resolusi 480p
+│   ├── ... (modul lain)
+└── models/            # (Opsional) Folder untuk model offline
+└── hand_landmarker_lite.task
 
 ```
 
-## Cara Coba Auto-Calibration
+### Cara Pakai Model Offline (Tanpa Internet)
 
-1. Buka kamera dan pastikan tangan terdeteksi.
-2. Buka panel **⚙️ Kalibrasi**.
-3. Tekan tombol **Mulai Kalibrasi Otomatis**.
-4. Ikuti instruksi di kotak kuning:
-   - Selama 3 detik, buka tangan selebar mungkin (jangan goyang).
-   - Selama 3 detik berikutnya, cubit jempol dan telunjuk Anda.
-5. Setelah selesai, slider akan otomatis bergerak ke angka yang paling pas.
+Saat ini `config.js` mengambil model dari CDN Google. Jika ingin aplikasi berjalan 100% offline:
 
-## Troubleshooting
+1. Download file model `hand_landmarker_lite.task` dari [URL ini](https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker_lite/float16/1/hand_landmarker_lite.task).
+2. Buat folder `models` di dalam folder aplikasi Anda, lalu taruh file tersebut di dalamnya (`models/hand_landmarker_lite.task`).
+3. Buka `js/config.js` dan ubah `MODEL_URL` menjadi:
+   ```javascript
+   MODEL_URL: './models/hand_landmarker_lite.task',
+```
 
-| Gejala | Solusi |
-|---|---|
-| Kalibrasi otomatis gagal | Pastikan pencahayaan cukup dan tangan tidak keluar dari frame kamera selama proses 6 detik. |
-| HUD menutupi wajah/tangan | Tekan tombol **HUD: ON** di bawah video untuk menyembunyikannya. |
-| Pengaturan tidak tersimpan | Cek apakah mode Incognito/Private Browsing aktif (localStorage biasanya diblokir). |
+4. (Opsional) Untuk WASM MediaPipe yang offline, Anda harus mengunduh seluruh file di folder `wasm` dari `@mediapipe/tasks-vision` dan mengubah `WASM_ROOT` ke path lokal.
+
+## Target Performa (Definition of Done)
+
+- ☑  
+FPS ≥ 20 di HP mid-range (720p sebelumnya, sekarang 480p agar tembus 30fps).
+- ☑  
+Tidak ada error `console.error` dari Canvas 2D.
+- ☑  
+Smoothing berjalan (EMA) di resolusi rendah.
 
