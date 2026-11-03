@@ -1,8 +1,6 @@
 /*
   style.css
-  Tujuan     : Styling mobile-first, dark default, dioptimasi untuk performa.
-  Dependensi : Tidak ada.
-  Catatan    : backdrop-filter dihapus karena sangat membebani render di Android.
+  Tujuan     : Styling mobile-first, fix stacking context untuk video & canvas.
 */
 
 * { box-sizing: border-box; }
@@ -39,7 +37,6 @@ body {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -79,13 +76,14 @@ body {
 .stage {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 3; /* Default 4:3, di-override via JS jika video beda aspek */
+  aspect-ratio: 4 / 3;
   background: #000;
   border-radius: 14px;
   overflow: hidden;
   border: 1px solid #26262e;
 }
 
+/* FIX: Beri z-index eksplisit agar video & canvas tidak saling timpa secara aneh */
 .stage video,
 .stage canvas {
   position: absolute;
@@ -98,13 +96,14 @@ body {
 .stage video {
   object-fit: cover;
   transform: scaleX(-1);
+  -webkit-transform: scaleX(-1); /* Fallback Android WebView */
+  z-index: 1;
 }
 
 .stage canvas {
   object-fit: cover;
   pointer-events: none;
-  /* Hint ke browser untuk render cepat */
-  will-change: transform; 
+  z-index: 2;
 }
 
 /* Debug HUD */
@@ -112,7 +111,7 @@ body {
   position: absolute;
   top: 10px;
   left: 10px;
-  background: rgba(11, 11, 14, 0.9); /* Solid transparan, TANPA backdrop-filter */
+  background: rgba(11, 11, 14, 0.9);
   color: #e6e6ea;
   padding: 8px 12px;
   border-radius: 8px;
@@ -121,7 +120,7 @@ body {
   line-height: 1.5;
   pointer-events: none;
   border: 1px solid #26262e;
-  z-index: 10;
+  z-index: 10; /* HUD di atas segalanya */
 }
 .hud div { display: flex; justify-content: space-between; gap: 12px; }
 .hud span { color: #63f5a1; font-weight: bold; }
@@ -143,7 +142,6 @@ body {
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
 }
 .btn-sm:active { filter: brightness(0.8); }
 .btn-primary { background: #4d6bfe; color: #fff; border-color: #4d6bfe; }
@@ -177,13 +175,7 @@ body {
   accent-color: #4d6bfe;
   height: 24px;
 }
-
-.panel-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 4px;
-}
-
+.panel-actions { display: flex; gap: 8px; margin-top: 4px; }
 .auto-status {
   font-size: 0.8rem;
   text-align: center;
@@ -198,7 +190,7 @@ body {
 /* Target Zoom & Pan */
 .zoom-container {
   width: 100%;
-  height: 140px; /* Dikecilin dikit biar hemat layar */
+  height: 140px;
   background: #0b0b0e;
   border-radius: 14px;
   border: 1px solid #26262e;
@@ -224,7 +216,6 @@ body {
 .grid-content {
   font-size: 0.8rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
   color: #4d6bfe;
   background: rgba(11, 11, 14, 0.8);
   padding: 4px 12px;
@@ -233,33 +224,11 @@ body {
   user-select: none;
 }
 
-.hint {
-  margin: 0;
-  font-size: 0.78rem;
-  color: #86868f;
-  text-align: center;
-  line-height: 1.4;
-}
-
-.controls {
-  display: flex;
-  gap: 10px;
-  margin-top: auto;
-}
-
+.hint { margin: 0; font-size: 0.78rem; color: #86868f; text-align: center; line-height: 1.4; }
+.controls { display: flex; gap: 10px; margin-top: auto; }
 .btn {
-  flex: 1;
-  min-height: 48px;
-  border: none;
-  border-radius: 12px;
-  background: #4d6bfe;
-  color: #fff;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: filter 0.15s ease;
+  flex: 1; min-height: 48px; border: none; border-radius: 12px;
+  background: #4d6bfe; color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer;
 }
-
 .btn:active { filter: brightness(0.9); }
 .btn:disabled { background: #2c2c35; color: #6d6d78; cursor: not-allowed; }
-
