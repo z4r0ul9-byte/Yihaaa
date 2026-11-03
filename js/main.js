@@ -1,6 +1,6 @@
 /*
   main.js
-  Tujuan     : Orkestrator Rope 2 Tangan.
+  Tujuan     : Orkestrator Dual Mode (Rope & Block).
 */
 
 import { CONFIG, loadConfigFromStorage } from './config.js';
@@ -9,6 +9,7 @@ import { createHandTracker, detectHands } from './tracker.js';
 import { Cursor } from './cursor.js';
 import { GestureDetector } from './gesture.js';
 import { Rope } from './rope.js';
+import { DimensionBlock } from './block.js';
 import { HUD } from './hud.js';
 import { Calibration } from './calibration.js';
 
@@ -19,6 +20,8 @@ const canvasEl = document.getElementById('overlay');
 const stageEl = document.getElementById('stage');
 const statusEl = document.getElementById('status');
 const startBtn = document.getElementById('startBtn');
+const btnToggleMode = document.getElementById('btn-toggle-mode');
+const modeHint = document.getElementById('mode-hint');
 const ctx = canvasEl.getContext('2d');
 
 let stream = null;
@@ -27,11 +30,34 @@ let rafId = 0;
 let lastVideoTime = -1;
 let running = false;
 
+// Mode State
+let currentMode = 'rope'; // 'rope' | 'block'
+
 const cursor = new Cursor(CONFIG.CURSOR);
 const gesture = new GestureDetector(CONFIG.GESTURE);
-const rope = new Rope(15, 20); // 15 titik, tiap titik jaraknya 20px
+const rope = new Rope(15, 20);
+const block = new DimensionBlock();
 const hud = new HUD();
 const calibration = new Calibration(CONFIG, cursor, gesture);
+
+// Event Listener Switch Mode
+btnToggleMode.addEventListener('click', () => {
+  if (currentMode === 'rope') {
+    currentMode = 'block';
+    btnToggleMode.textContent = 'Mode: Balok Glow';
+    btnToggleMode.style.background = '#00e5ff';
+    btnToggleMode.style.color = '#000';
+    btnToggleMode.style.borderColor = '#00e5ff';
+    modeHint.textContent = 'Balok Dimensi Glow aktif. Gerakkan dua tangan untuk melebarkan balok.';
+  } else {
+    currentMode = 'rope';
+    btnToggleMode.textContent = 'Mode: Rope';
+    btnToggleMode.style.background = '#8a2be2';
+    btnToggleMode.style.color = '#fff';
+    btnToggleMode.style.borderColor = '#8a2be2';
+    modeHint.textContent = 'Tali karet aktif. Tunjukkan dua tangan untuk menyambung tali.';
+  }
+});
 
 function setStatus(text, kind = '') {
   statusEl.textContent = text;
@@ -128,7 +154,7 @@ function render(result, now) {
       const lms = landmarks[i];
       if (!lms || lms.length < 21) continue;
       
-      // Simpan ujung telunjuk (landmark 8) untuk tali
+      // Simpan ujung telunjuk (landmark 8) untuk anchor
       handTips.push(toCanvasXY(lms[8]));
 
       const color = CONFIG.HAND_COLORS[i % CONFIG.HAND_COLORS.length];
@@ -143,24 +169,29 @@ function render(result, now) {
   cursor.update(landmarks, handedness, canvasEl.width, canvasEl.height);
   cursor.draw(ctx);
 
-  // Update Gesture (hanya pakai tangan pertama/primary)
   let activeHandLandmarks = null;
   if (cursor.primaryHandIndex !== -1 && landmarks[cursor.primaryHandIndex]) {
     activeHandLandmarks = landmarks[cursor.primaryHandIndex];
   }
   const gestureData = gesture.update(activeHandLandmarks);
 
-  // Update & Gambar Tali (sambungkan 2 tangan kalau ada)
+  // Ambil titik ujung jari (maks 2)
   const t1 = handTips[0] || null;
   const t2 = handTips[1] || null;
-  
-  rope.update(t1, t2, canvasEl.width, canvasEl.height);
-  rope.draw(ctx);
+
+  // Render berdasarkan Mode
+  if (currentMode === 'rope') {
+    rope.update(t1, t2, canvasEl.width, canvasEl.height);
+    rope.draw(ctx);
+  } else {
+    block.update(t1, t2);
+    block.draw(ctx);
+  }
 
   if (gestureData.state === 'PINCHED') {
     setStatus(`Mencubit`, 'pinch');
   } else if (running) {
-    setStatus('Siap. Tunjukkan 2 tangan lu ke kamera.', 'ok');
+    setStatus(`Siap. Mode: ${currentMode === 'rope' ? 'Tali Karet' : 'Balok Glow'}.`, 'ok');
   }
 
   hud.update(now, landmarks.length, gestureData);
