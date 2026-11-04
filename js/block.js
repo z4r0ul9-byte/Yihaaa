@@ -1,6 +1,6 @@
 /*
   block.js
-  Tujuan     : Menggambar Balok 3D dengan kontrol terpisah + responsivitas tinggi.
+  Tujuan     : Menggambar Balok 3D dengan smoothing responsif.
   Dependensi : Tidak ada.
 */
 
@@ -20,10 +20,11 @@ export class DimensionBlock {
     this.boxStartX = 0;
     this.boxStartY = 0;
 
-    // Smoothing dipercepat biar tidak ketinggalan jauh dari tangan
     this.smoothDepth = 1.0;
-    this.alphaPos = 0.6;  
-    this.alphaSize = 0.25; 
+    // Alpha naik biar makin responsif dan gak kerasa lag
+    this.alphaPos = 0.7;  
+    this.alphaSize = 0.3; 
+    this.alphaDepth = 0.25;
   }
 
   update(anchor1, anchor2, isPinching, pinchPos, depthRatio = 1.0, canvasWidth = 640, canvasHeight = 480) {
@@ -32,7 +33,6 @@ export class DimensionBlock {
       this.y = canvasHeight / 2 - this.h / 2;
     }
 
-    // 1. RESIZE (Lebar / Kecil)
     if (anchor1 && anchor2 && !this.isPinching) {
       const minX = Math.min(anchor1[0], anchor2[0]);
       const maxX = Math.max(anchor1[0], anchor2[0]);
@@ -51,7 +51,6 @@ export class DimensionBlock {
       this.y += (targetY - this.y) * this.alphaPos;
     }
 
-    // 2. MOVE (Mindah) - Pakai Pinch
     if (isPinching && pinchPos) {
       if (!this.isPinching) {
         this.isPinching = true;
@@ -73,8 +72,7 @@ export class DimensionBlock {
       this.isPinching = false;
     }
 
-    // 3. DEPTH (Z) - Sekarang pake data dari main.js yang udah di-invert
-    this.smoothDepth += (depthRatio - this.smoothDepth) * 0.15;
+    this.smoothDepth += (depthRatio - this.smoothDepth) * this.alphaDepth;
     this.depthRatio = this.smoothDepth;
   }
 
@@ -89,6 +87,7 @@ export class DimensionBlock {
     const baseDepth = Math.max(w, h) * 0.3;
     const depth = Math.max(10, baseDepth * this.depthRatio);
     
+    // Offset 3D (kiri-atas menjauh)
     const ox = -depth * 0.8;
     const oy = -depth * 0.6;
 

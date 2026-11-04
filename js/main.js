@@ -1,6 +1,6 @@
 /*
   main.js
-  Tujuan     : Orkestrator Dual Mode + Fix Z-Axis Inversion (Menjauh = Maju).
+  Tujuan     : Orkestrator Dual Mode (Rope & Balok 3D) + Fix Z-Axis.
 */
 
 import { CONFIG, loadConfigFromStorage, saveConfigToStorage } from './config.js';
@@ -53,7 +53,7 @@ btnToggleMode.addEventListener('click', () => {
     btnToggleMode.style.background = '#00e5ff';
     btnToggleMode.style.color = '#000';
     btnToggleMode.style.borderColor = '#00e5ff';
-    modeHint.textContent = 'Cubit untuk MINDAH balok. Jauh-deketin DUA TANGAN untuk atur LEBAR/KECIL.';
+    modeHint.textContent = 'Cubit untuk MINDAH balok. Jauh-deketin DUA TANGAN untuk LEBAR/KECIL.';
   } else {
     currentMode = 'rope';
     btnToggleMode.textContent = 'Mode: Rope';
@@ -188,9 +188,8 @@ function render(result, now) {
 
     const avgHandSize = totalHandSize / landmarks.length;
     
-    // FIX Z-AXIS: Kalau tangan jauh (mengecil), depthRatio membesar (maju).
-    // Rumus: 0.15 dibagi ukuran tangan.
-    depthRatio = 0.15 / avgHandSize; 
+    // FIX: Balik ke rumus normal. Tangan deket (gede) -> Balok maju (nebal).
+    depthRatio = avgHandSize / 0.15; 
     depthRatio = Math.max(0.4, Math.min(2.5, depthRatio)); 
   }
 
