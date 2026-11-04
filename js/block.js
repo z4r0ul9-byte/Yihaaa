@@ -1,71 +1,99 @@
 /*
   block.js
-  Tujuan     : Menggambar Balok 3D dengan efek Neon Glow + Fix bug freeze & teks kebalik.
+  Tujuan     : Menggambar Balok 3D dengan kontrol terpisah (Pinch = Move, Jarak Tangan = Resize).
   Dependensi : Tidak ada.
 */
 
 export class DimensionBlock {
   constructor() {
-    this.ax = null; this.ay = null;
-    this.bx = null; this.by = null;
+    this.x = null;
+    this.y = null;
+    this.w = 100;
+    this.h = 100;
     
-    this.smoothAx = null; this.smoothAy = null;
-    this.smoothBx = null; this.smoothBy = null;
+    this.targetW = 100;
+    this.targetH = 100;
+    
+    // State untuk drag (mindahin balok)
+    this.isPinching = false;
+    this.pinchStartX = 0;
+    this.pinchStartY = 0;
+    this.boxStartX = 0;
+    this.boxStartY = 0;
+
+    // Smoothing
     this.smoothDepth = 1.0;
-    
-    this.alphaPos = 0.3;
-    this.alphaDepth = 0.1;
-    
-    // Flag untuk mencegah balok freeze saat tangan hilang
-    this.active = false; 
+    this.alphaPos = 0.4;  // Kecepatan balok ngikutin tangan
+    this.alphaSize = 0.15; // Kecepatan balok membesar/mengecil
   }
 
-  update(anchor1, anchor2, depthRatio = 1.0) {
-    // FIX BUG: Jika salah satu tangan tidak terdeteksi, matikan balok.
-    if (!anchor1 || !anchor2) {
-      this.active = false;
-      return;
-    }
-    this.active = true;
-
-    const targetAx = anchor1[0];
-    const targetAy = anchor1[1];
-    const targetBx = anchor2[0];
-    const targetBy = anchor2[1];
-
-    // Inisialisasi pertama kali
-    if (this.smoothAx === null) {
-      this.smoothAx = targetAx; this.smoothAy = targetAy;
-      this.smoothBx = targetBx; this.smoothBy = targetBy;
-      this.smoothDepth = depthRatio;
+  update(anchor1, anchor2, isPinching, pinchPos, depthRatio = 1.0, canvasWidth = 640, canvasHeight = 480) {
+    // Inisialisasi awal di tengah layar kalau belum ada posisi
+    if (this.x === null) {
+      this.x = canvasWidth / 2 - this.w / 2;
+      this.y = canvasHeight / 2 - this.h / 2;
     }
 
-    // EMA Smoothing
-    this.smoothAx += (targetAx - this.smoothAx) * this.alphaPos;
-    this.smoothAy += (targetAy - this.smoothAy) * this.alphaPos;
-    this.smoothBx += (targetBx - this.smoothBx) * this.alphaPos;
-    this.smoothBy += (targetBy - this.smoothBy) * this.alphaPos;
-    
-    this.smoothDepth += (depthRatio - this.smoothDepth) * this.alphaDepth;
-    
-    this.ax = this.smoothAx;
-    this.ay = this.smoothAy;
-    this.bx = this.smoothBx;
-    this.by = this.smoothBy;
+    // 1. RESIZE (Lebar / Kecil) - Berdasarkan jarak dua tangan
+    // Hanya jalan kalau sedang TIDAK mencubit
+    if (anchor1 && anchor2 && !this.isPinching) {
+      const minX = Math.min(anchor1[0], anchor2[0]);
+      const maxX = Math.max(anchor1[0], anchor2[0]);
+      const minY = Math.min(anchor1[1], anchor2[1]);
+      const maxY = Math.max(anchor1[1], anchor2[1]);
+      
+      this.targetW = Math.max(50, maxX - minX);
+      this.targetH = Math.max(50, maxY - minY);
+      
+      // Posisi tengah balok ngikutin titik tengah antara dua tangan
+      const targetX = minX + (maxX - minX) / 2 - this.targetW / 2;
+      const targetY = minY + (maxY - minY) / 2 - this.targetH / 2;
+
+      // Terapkan smoothing
+      this.w += (this.targetW - this.w) * this.alphaSize;
+      this.h += (this.targetH - this.h) * this.alphaSize;
+      this.x += (targetX - this.x) * this.alphaPos;
+      this.y += (targetY - this.y) * this.alphaPos;
+    }
+
+    // 2. MOVE (Mindah) - Berdasarkan Pinch (Cubitan)
+    if (isPinching && pinchPos) {
+      if (!this.isPinching) {
+        // Momen pertama kali mencubit: simpan posisi awal
+        this.isPinching = true;
+        this.pinchStartX = pinchPos[0];
+        this.pinchStartY = pinchPos[1];
+        this.boxStartX = this.x;
+        this.boxStartY = this.y;
+      } else {
+        // Sedang mencubit: hitung geseran (delta)
+        const dx = pinchPos[0] - this.pinchStartX;
+        const dy = pinchPos[1] - this.pinchStartY;
+        
+        const targetX = this.boxStartX + dx;
+        const targetY = this.boxStartY + dy;
+        
+        // Geser posisi balok dengan smoothing
+        this.x += (targetX - this.x) * this.alphaPos;
+        this.y += (targetY - this.y) * this.alphaPos;
+      }
+    } else {
+      // Lepas cubitan
+      this.isPinching = false;
+    }
+
+    // 3. DEPTH (Z) - Berdasarkan ukuran tangan di kamera
+    this.smoothDepth += (depthRatio - this.smoothDepth) * 0.1;
     this.depthRatio = this.smoothDepth;
   }
 
   draw(ctx) {
-    // Jika balok tidak aktif, jangan digambar
-    if (!this.active || this.ax === null || this.bx === null) return;
+    if (this.x === null) return;
 
-    const x1 = Math.min(this.ax, this.bx);
-    const x2 = Math.max(this.ax, this.bx);
-    const y1 = Math.min(this.ay, this.by);
-    const y2 = Math.max(this.ay, this.by);
-    
-    const w = x2 - x1;
-    const h = y2 - y1;
+    const x1 = this.x;
+    const y1 = this.y;
+    const w = this.w;
+    const h = this.h;
     
     const baseDepth = Math.max(w, h) * 0.3;
     const depth = Math.max(10, baseDepth * this.depthRatio);
@@ -73,6 +101,7 @@ export class DimensionBlock {
     const ox = -depth * 0.8;
     const oy = -depth * 0.6;
 
+    // Warna berubah sesuai kedalaman
     let neonColor = '#00e5ff'; 
     if (this.depthRatio < 0.8) neonColor = '#4d6bfe'; 
     if (this.depthRatio > 1.5) neonColor = '#ff00ff'; 
@@ -90,47 +119,46 @@ export class DimensionBlock {
       ctx.stroke();
     };
 
-    // Back face
+    // 1. Sisi Belakang (Back Face)
     ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
     ctx.beginPath();
     ctx.rect(x1 + ox, y1 + oy, w, h);
     ctx.fill();
     ctx.stroke();
 
-    // Depth edges
+    // 2. Garis Penghubung (Depth Edges)
     line(x1, y1, x1 + ox, y1 + oy); 
-    line(x2, y1, x2 + ox, y1 + oy); 
-    line(x1, y2, x1 + ox, y2 + oy); 
-    line(x2, y2, x2 + ox, y2 + oy); 
+    line(x1 + w, y1, x1 + w + ox, y1 + oy); 
+    line(x1, y1 + h, x1 + ox, y1 + h + oy); 
+    line(x1 + w, y1 + h, x1 + w + ox, y1 + h + oy); 
 
-    // Front face
+    // 3. Sisi Depan (Front Face)
     ctx.fillStyle = this.depthRatio > 1.5 ? 'rgba(255, 0, 255, 0.15)' : (this.depthRatio < 0.8 ? 'rgba(77, 107, 254, 0.15)' : 'rgba(0, 229, 255, 0.15)');
     ctx.beginPath();
     ctx.rect(x1, y1, w, h);
     ctx.fill();
     ctx.stroke();
 
-    // Corner Brackets
+    // 4. Sudut Depan (Corner Brackets)
     ctx.lineWidth = 4;
     const len = Math.min(20, w/2, h/2);
     ctx.beginPath();
     ctx.moveTo(x1, y1 + len); ctx.lineTo(x1, y1); ctx.lineTo(x1 + len, y1);
-    ctx.moveTo(x2 - len, y1); ctx.lineTo(x2, y1); ctx.lineTo(x2, y1 + len);
-    ctx.moveTo(x2, y2 - len); ctx.lineTo(x2, y2); ctx.lineTo(x2 - len, y2);
-    ctx.moveTo(x1 + len, y2); ctx.lineTo(x1, y2); ctx.lineTo(x1, y2 - len);
+    ctx.moveTo(x1 + w - len, y1); ctx.lineTo(x1 + w, y1); ctx.lineTo(x1 + w, y1 + len);
+    ctx.moveTo(x1 + w, y1 + h - len); ctx.lineTo(x1 + w, y1 + h); ctx.lineTo(x1 + w - len, y1 + h);
+    ctx.moveTo(x1 + len, y1 + h); ctx.lineTo(x1, y1 + h); ctx.lineTo(x1, y1 + h - len);
     ctx.stroke();
 
-    // Teks Z
+    // 5. Teks Indikator Z
     ctx.shadowBlur = 0;
     ctx.fillStyle = neonColor;
     ctx.font = `bold 14px ui-monospace, monospace`;
     ctx.textAlign = 'center';
     
-    // FIX BUG: Teks harus di-un-mirror agar tidak kebalik
-    const centerX = (x1 + x2) / 2;
+    const centerX = x1 + w / 2;
     ctx.save();
-    ctx.translate(centerX, y2 + 25);
-    ctx.scale(-1, 1); // Flip horizontal
+    ctx.translate(centerX, y1 + h + 25);
+    ctx.scale(-1, 1); // Un-mirror teks
     ctx.fillText(`Z: ${this.depthRatio.toFixed(2)}x`, 0, 0);
     ctx.restore();
 

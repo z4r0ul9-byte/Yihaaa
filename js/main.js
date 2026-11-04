@@ -1,6 +1,6 @@
 /*
   main.js
-  Tujuan     : Orkestrator Dual Mode + UI Toggle (Cloud/Local, Cam Depan/Belakang).
+  Tujuan     : Orkestrator Dual Mode (Rope & Balok 3D) + Kontrol Move/Resize.
 */
 
 import { CONFIG, loadConfigFromStorage, saveConfigToStorage } from './config.js';
@@ -54,7 +54,7 @@ btnToggleMode.addEventListener('click', () => {
     btnToggleMode.style.background = '#00e5ff';
     btnToggleMode.style.color = '#000';
     btnToggleMode.style.borderColor = '#00e5ff';
-    modeHint.textContent = 'Balok 3D aktif. Gunakan DUA TANGAN untuk menarik balok.';
+    modeHint.textContent = 'Cubit untuk MINDAH balok. Jauh-deketin DUA TANGAN untuk atur LEBAR/KECIL.';
   } else {
     currentMode = 'rope';
     btnToggleMode.textContent = 'Mode: Rope';
@@ -69,14 +69,14 @@ btnToggleModel.addEventListener('click', () => {
   isLocalModel = !isLocalModel;
   CONFIG.MODEL_URL = isLocalModel ? CONFIG.MODEL_URL_LOCAL : CONFIG.MODEL_URL_CLOUD;
   saveConfigToStorage({ USE_LOCAL_MODEL: isLocalModel });
-  window.location.reload(); // Reload buat muat model baru
+  window.location.reload();
 });
 
 btnToggleCam.addEventListener('click', () => {
   const isFront = CONFIG.CAMERA.facingMode === 'user';
   CONFIG.CAMERA.facingMode = isFront ? 'environment' : 'user';
   saveConfigToStorage({ FACING_MODE: CONFIG.CAMERA.facingMode });
-  window.location.reload(); // Reload buat restart kamera
+  window.location.reload();
 });
 
 function setStatus(text, kind = '') {
@@ -200,6 +200,10 @@ function render(result, now) {
     activeHandLandmarks = landmarks[cursor.primaryHandIndex];
   }
   const gestureData = gesture.update(activeHandLandmarks);
+  const isPinching = gestureData.state === 'PINCHED';
+  
+  // Ambil posisi pinch (pakai posisi kursor)
+  const pinchPos = cursor.active ? [cursor.x, cursor.y] : null;
 
   const t1 = handTips[0] || null;
   const t2 = handTips[1] || null;
@@ -208,11 +212,12 @@ function render(result, now) {
     rope.update(t1, t2, canvasEl.width, canvasEl.height);
     rope.draw(ctx);
   } else {
-    block.update(t1, t2, depthRatio);
+    // Kirim data pinch untuk fitur Mindah
+    block.update(t1, t2, isPinching, pinchPos, depthRatio, canvasEl.width, canvasEl.height);
     block.draw(ctx);
   }
 
-  if (gestureData.state === 'PINCHED') {
+  if (isPinching) {
     setStatus(`Mencubit`, 'pinch');
   } else if (running) {
     setStatus(`Siap. Mode: ${currentMode === 'rope' ? 'Tali Karet' : 'Balok 3D'}.`, 'ok');
