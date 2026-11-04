@@ -1,6 +1,6 @@
 /*
   main.js
-  Tujuan     : Orkestrator Dual Mode (Rope & Balok 3D) + Kontrol Move/Resize.
+  Tujuan     : Orkestrator Dual Mode + Fix Z-Axis Inversion (Menjauh = Maju).
 */
 
 import { CONFIG, loadConfigFromStorage, saveConfigToStorage } from './config.js';
@@ -42,7 +42,6 @@ const block = new DimensionBlock();
 const hud = new HUD();
 const calibration = new Calibration(CONFIG, cursor, gesture);
 
-// Init UI Text
 btnToggleModel.textContent = isLocalModel ? 'Model: Local' : 'Model: Cloud';
 if (isLocalModel) btnToggleModel.style.background = '#f0dc9a';
 btnToggleCam.textContent = CONFIG.CAMERA.facingMode === 'user' ? 'Cam: Depan' : 'Cam: Belakang';
@@ -188,7 +187,10 @@ function render(result, now) {
     }
 
     const avgHandSize = totalHandSize / landmarks.length;
-    depthRatio = avgHandSize / 0.15; 
+    
+    // FIX Z-AXIS: Kalau tangan jauh (mengecil), depthRatio membesar (maju).
+    // Rumus: 0.15 dibagi ukuran tangan.
+    depthRatio = 0.15 / avgHandSize; 
     depthRatio = Math.max(0.4, Math.min(2.5, depthRatio)); 
   }
 
@@ -202,7 +204,6 @@ function render(result, now) {
   const gestureData = gesture.update(activeHandLandmarks);
   const isPinching = gestureData.state === 'PINCHED';
   
-  // Ambil posisi pinch (pakai posisi kursor)
   const pinchPos = cursor.active ? [cursor.x, cursor.y] : null;
 
   const t1 = handTips[0] || null;
@@ -212,7 +213,6 @@ function render(result, now) {
     rope.update(t1, t2, canvasEl.width, canvasEl.height);
     rope.draw(ctx);
   } else {
-    // Kirim data pinch untuk fitur Mindah
     block.update(t1, t2, isPinching, pinchPos, depthRatio, canvasEl.width, canvasEl.height);
     block.draw(ctx);
   }

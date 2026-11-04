@@ -1,6 +1,6 @@
 /*
   block.js
-  Tujuan     : Menggambar Balok 3D dengan kontrol terpisah (Pinch = Move, Jarak Tangan = Resize).
+  Tujuan     : Menggambar Balok 3D dengan kontrol terpisah + responsivitas tinggi.
   Dependensi : Tidak ada.
 */
 
@@ -14,28 +14,25 @@ export class DimensionBlock {
     this.targetW = 100;
     this.targetH = 100;
     
-    // State untuk drag (mindahin balok)
     this.isPinching = false;
     this.pinchStartX = 0;
     this.pinchStartY = 0;
     this.boxStartX = 0;
     this.boxStartY = 0;
 
-    // Smoothing
+    // Smoothing dipercepat biar tidak ketinggalan jauh dari tangan
     this.smoothDepth = 1.0;
-    this.alphaPos = 0.4;  // Kecepatan balok ngikutin tangan
-    this.alphaSize = 0.15; // Kecepatan balok membesar/mengecil
+    this.alphaPos = 0.6;  
+    this.alphaSize = 0.25; 
   }
 
   update(anchor1, anchor2, isPinching, pinchPos, depthRatio = 1.0, canvasWidth = 640, canvasHeight = 480) {
-    // Inisialisasi awal di tengah layar kalau belum ada posisi
     if (this.x === null) {
       this.x = canvasWidth / 2 - this.w / 2;
       this.y = canvasHeight / 2 - this.h / 2;
     }
 
-    // 1. RESIZE (Lebar / Kecil) - Berdasarkan jarak dua tangan
-    // Hanya jalan kalau sedang TIDAK mencubit
+    // 1. RESIZE (Lebar / Kecil)
     if (anchor1 && anchor2 && !this.isPinching) {
       const minX = Math.min(anchor1[0], anchor2[0]);
       const maxX = Math.max(anchor1[0], anchor2[0]);
@@ -45,45 +42,39 @@ export class DimensionBlock {
       this.targetW = Math.max(50, maxX - minX);
       this.targetH = Math.max(50, maxY - minY);
       
-      // Posisi tengah balok ngikutin titik tengah antara dua tangan
       const targetX = minX + (maxX - minX) / 2 - this.targetW / 2;
       const targetY = minY + (maxY - minY) / 2 - this.targetH / 2;
 
-      // Terapkan smoothing
       this.w += (this.targetW - this.w) * this.alphaSize;
       this.h += (this.targetH - this.h) * this.alphaSize;
       this.x += (targetX - this.x) * this.alphaPos;
       this.y += (targetY - this.y) * this.alphaPos;
     }
 
-    // 2. MOVE (Mindah) - Berdasarkan Pinch (Cubitan)
+    // 2. MOVE (Mindah) - Pakai Pinch
     if (isPinching && pinchPos) {
       if (!this.isPinching) {
-        // Momen pertama kali mencubit: simpan posisi awal
         this.isPinching = true;
         this.pinchStartX = pinchPos[0];
         this.pinchStartY = pinchPos[1];
         this.boxStartX = this.x;
         this.boxStartY = this.y;
       } else {
-        // Sedang mencubit: hitung geseran (delta)
         const dx = pinchPos[0] - this.pinchStartX;
         const dy = pinchPos[1] - this.pinchStartY;
         
         const targetX = this.boxStartX + dx;
         const targetY = this.boxStartY + dy;
         
-        // Geser posisi balok dengan smoothing
         this.x += (targetX - this.x) * this.alphaPos;
         this.y += (targetY - this.y) * this.alphaPos;
       }
     } else {
-      // Lepas cubitan
       this.isPinching = false;
     }
 
-    // 3. DEPTH (Z) - Berdasarkan ukuran tangan di kamera
-    this.smoothDepth += (depthRatio - this.smoothDepth) * 0.1;
+    // 3. DEPTH (Z) - Sekarang pake data dari main.js yang udah di-invert
+    this.smoothDepth += (depthRatio - this.smoothDepth) * 0.15;
     this.depthRatio = this.smoothDepth;
   }
 
@@ -101,7 +92,6 @@ export class DimensionBlock {
     const ox = -depth * 0.8;
     const oy = -depth * 0.6;
 
-    // Warna berubah sesuai kedalaman
     let neonColor = '#00e5ff'; 
     if (this.depthRatio < 0.8) neonColor = '#4d6bfe'; 
     if (this.depthRatio > 1.5) neonColor = '#ff00ff'; 
@@ -119,27 +109,27 @@ export class DimensionBlock {
       ctx.stroke();
     };
 
-    // 1. Sisi Belakang (Back Face)
+    // Back face
     ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
     ctx.beginPath();
     ctx.rect(x1 + ox, y1 + oy, w, h);
     ctx.fill();
     ctx.stroke();
 
-    // 2. Garis Penghubung (Depth Edges)
+    // Depth edges
     line(x1, y1, x1 + ox, y1 + oy); 
     line(x1 + w, y1, x1 + w + ox, y1 + oy); 
     line(x1, y1 + h, x1 + ox, y1 + h + oy); 
     line(x1 + w, y1 + h, x1 + w + ox, y1 + h + oy); 
 
-    // 3. Sisi Depan (Front Face)
+    // Front face
     ctx.fillStyle = this.depthRatio > 1.5 ? 'rgba(255, 0, 255, 0.15)' : (this.depthRatio < 0.8 ? 'rgba(77, 107, 254, 0.15)' : 'rgba(0, 229, 255, 0.15)');
     ctx.beginPath();
     ctx.rect(x1, y1, w, h);
     ctx.fill();
     ctx.stroke();
 
-    // 4. Sudut Depan (Corner Brackets)
+    // Corner Brackets
     ctx.lineWidth = 4;
     const len = Math.min(20, w/2, h/2);
     ctx.beginPath();
@@ -149,7 +139,7 @@ export class DimensionBlock {
     ctx.moveTo(x1 + len, y1 + h); ctx.lineTo(x1, y1 + h); ctx.lineTo(x1, y1 + h - len);
     ctx.stroke();
 
-    // 5. Teks Indikator Z
+    // Text
     ctx.shadowBlur = 0;
     ctx.fillStyle = neonColor;
     ctx.font = `bold 14px ui-monospace, monospace`;
@@ -158,7 +148,7 @@ export class DimensionBlock {
     const centerX = x1 + w / 2;
     ctx.save();
     ctx.translate(centerX, y1 + h + 25);
-    ctx.scale(-1, 1); // Un-mirror teks
+    ctx.scale(-1, 1); 
     ctx.fillText(`Z: ${this.depthRatio.toFixed(2)}x`, 0, 0);
     ctx.restore();
 
