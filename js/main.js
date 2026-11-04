@@ -1,9 +1,9 @@
 /*
   main.js
-  Tujuan     : Orkestrator Dual Mode (Rope & Balok 3D).
+  Tujuan     : Orkestrator Dual Mode + UI Toggle (Cloud/Local, Cam Depan/Belakang).
 */
 
-import { CONFIG, loadConfigFromStorage } from './config.js';
+import { CONFIG, loadConfigFromStorage, saveConfigToStorage } from './config.js';
 import { startCamera, stopCamera } from './camera.js';
 import { createHandTracker, detectHands } from './tracker.js';
 import { Cursor } from './cursor.js';
@@ -21,6 +21,8 @@ const stageEl = document.getElementById('stage');
 const statusEl = document.getElementById('status');
 const startBtn = document.getElementById('startBtn');
 const btnToggleMode = document.getElementById('btn-toggle-mode');
+const btnToggleModel = document.getElementById('btn-toggle-model');
+const btnToggleCam = document.getElementById('btn-toggle-cam');
 const modeHint = document.getElementById('mode-hint');
 const ctx = canvasEl.getContext('2d');
 
@@ -31,6 +33,7 @@ let lastVideoTime = -1;
 let running = false;
 
 let currentMode = 'rope'; 
+let isLocalModel = CONFIG.MODEL_URL === CONFIG.MODEL_URL_LOCAL;
 
 const cursor = new Cursor(CONFIG.CURSOR);
 const gesture = new GestureDetector(CONFIG.GESTURE);
@@ -38,6 +41,11 @@ const rope = new Rope(15, 20);
 const block = new DimensionBlock();
 const hud = new HUD();
 const calibration = new Calibration(CONFIG, cursor, gesture);
+
+// Init UI Text
+btnToggleModel.textContent = isLocalModel ? 'Model: Local' : 'Model: Cloud';
+if (isLocalModel) btnToggleModel.style.background = '#f0dc9a';
+btnToggleCam.textContent = CONFIG.CAMERA.facingMode === 'user' ? 'Cam: Depan' : 'Cam: Belakang';
 
 btnToggleMode.addEventListener('click', () => {
   if (currentMode === 'rope') {
@@ -55,6 +63,20 @@ btnToggleMode.addEventListener('click', () => {
     btnToggleMode.style.borderColor = '#8a2be2';
     modeHint.textContent = 'Tali karet aktif. Tunjukkan dua tangan untuk menyambung tali.';
   }
+});
+
+btnToggleModel.addEventListener('click', () => {
+  isLocalModel = !isLocalModel;
+  CONFIG.MODEL_URL = isLocalModel ? CONFIG.MODEL_URL_LOCAL : CONFIG.MODEL_URL_CLOUD;
+  saveConfigToStorage({ USE_LOCAL_MODEL: isLocalModel });
+  window.location.reload(); // Reload buat muat model baru
+});
+
+btnToggleCam.addEventListener('click', () => {
+  const isFront = CONFIG.CAMERA.facingMode === 'user';
+  CONFIG.CAMERA.facingMode = isFront ? 'environment' : 'user';
+  saveConfigToStorage({ FACING_MODE: CONFIG.CAMERA.facingMode });
+  window.location.reload(); // Reload buat restart kamera
 });
 
 function setStatus(text, kind = '') {
@@ -148,7 +170,6 @@ function render(result, now) {
   if (landmarks.length > 0) {
     const lw = strokeWidth();
     const r = pointRadius();
-
     let totalHandSize = 0;
 
     for (let i = 0; i < landmarks.length; i++) {
@@ -156,7 +177,6 @@ function render(result, now) {
       if (!lms || lms.length < 21) continue;
       
       handTips.push(toCanvasXY(lms[8]));
-
       totalHandSize += Math.hypot(lms[0].x - lms[9].x, lms[0].y - lms[9].y);
 
       const color = CONFIG.HAND_COLORS[i % CONFIG.HAND_COLORS.length];
@@ -181,7 +201,6 @@ function render(result, now) {
   }
   const gestureData = gesture.update(activeHandLandmarks);
 
-  // Ambil titik ujung jari (maks 2)
   const t1 = handTips[0] || null;
   const t2 = handTips[1] || null;
 
@@ -236,7 +255,7 @@ async function boot() {
   }
 
   syncCanvasToVideo();
-  setStatus('Kamera aktif. Memuat model…', 'warn');
+  setStatus(`Kamera aktif. Memuat model (${isLocalModel ? 'Local' : 'Cloud'})…`, 'warn');
 
   try {
     const created = await createHandTracker(CONFIG, (msg) => setStatus(msg, 'warn'));

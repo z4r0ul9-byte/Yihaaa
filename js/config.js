@@ -1,21 +1,24 @@
 /*
   config.js
-  Tujuan     : Set NUM_HANDS: 2 agar bisa menyambung tali antar dua tangan.
+  Tujuan     : Konstanta + dukungan jalur model Cloud/Local.
 */
 
 export const CONFIG = {
   WASM_ROOT: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm',
   TASKS_VISION_ESM: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm',
-  MODEL_URL: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+  
+  // Dua opsi model: Cloud (CDN Google) dan Local (Folder sendiri)
+  MODEL_URL_CLOUD: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+  MODEL_URL_LOCAL: './models/hand_landmarker.task',
+  MODEL_URL: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task', // Default aktif
 
-  // WAJIB 2 TANGAN untuk fitur tali karet
   NUM_HANDS: 2, 
   MIN_HAND_DETECTION_CONFIDENCE: 0.5,
   MIN_HAND_PRESENCE_CONFIDENCE: 0.5,
   MIN_TRACKING_CONFIDENCE: 0.5,
 
   CAMERA: {
-    facingMode: 'user',
+    facingMode: 'user', // 'user' (Depan) atau 'environment' (Belakang)
     width: { max: 640 },
     height: { max: 480 },
     frameRate: { max: 30 }
@@ -53,10 +56,20 @@ export function loadConfigFromStorage() {
     const data = JSON.parse(raw);
     if (data.GESTURE) Object.assign(CONFIG.GESTURE, data.GESTURE);
     if (data.CURSOR && data.CURSOR.EMA_ALPHA) CONFIG.CURSOR.EMA_ALPHA = data.CURSOR.EMA_ALPHA;
+    if (data.USE_LOCAL_MODEL !== undefined) {
+      CONFIG.MODEL_URL = data.USE_LOCAL_MODEL ? CONFIG.MODEL_URL_LOCAL : CONFIG.MODEL_URL_CLOUD;
+    }
+    if (data.FACING_MODE) {
+      CONFIG.CAMERA.facingMode = data.FACING_MODE;
+    }
   } catch (e) {}
 }
 
-export function saveConfigToStorage() {
-  const data = { GESTURE: CONFIG.GESTURE, CURSOR: { EMA_ALPHA: CONFIG.CURSOR.EMA_ALPHA } };
+export function saveConfigToStorage(extra = {}) {
+  const data = { 
+    GESTURE: CONFIG.GESTURE, 
+    CURSOR: { EMA_ALPHA: CONFIG.CURSOR.EMA_ALPHA },
+    ...extra
+  };
   localStorage.setItem('handGestureConfig', JSON.stringify(data));
 }
