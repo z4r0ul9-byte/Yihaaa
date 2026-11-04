@@ -1,6 +1,6 @@
 /*
   main.js
-  Tujuan     : Orkestrator Dual Mode (Rope & Balok 3D) + Fix Z-Axis.
+  Tujuan     : Orkestrator Dual Mode (Rope & Balok 3D) - Perbaikan Logika Depth.
 */
 
 import { CONFIG, loadConfigFromStorage, saveConfigToStorage } from './config.js';
@@ -187,8 +187,7 @@ function render(result, now) {
     }
 
     const avgHandSize = totalHandSize / landmarks.length;
-    
-    // FIX: Balik ke rumus normal. Tangan deket (gede) -> Balok maju (nebal).
+    // FIX LOGIKA Z: Tangan lebih besar (maju) -> depthRatio > 1. Tangan kecil (mundur) -> depthRatio < 1.
     depthRatio = avgHandSize / 0.15; 
     depthRatio = Math.max(0.4, Math.min(2.5, depthRatio)); 
   }
