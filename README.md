@@ -1,13 +1,33 @@
-# Hand Gesture — Rope 2 Tangan (Slingshot)
+# Hand Gesture — Dual Mode (Cloud vs Local)
 
-Aplikasi hand-tracking yang menyambungkan **tali karet (rubber band)** antar ujung jari telunjuk tangan kiri dan kanan secara real-time di layar kamera.
+Aplikasi hand-tracking dengan dua mode visual (Tali Karet & Balok 3D) serta opsi pengaturan sumber daya.
 
-## Cara Main
-1. Nyalakan kamera.
-2. Tunjukkan **kedua tangan** (kiri dan kanan) ke arah kamera.
-3. Tali karet merah akan otomatis muncul dan menyambung di ujung telunjuk lu.
-4. Geser/jauhkan tangan lu, talinya akan melar. Deketin tangannya, talinya bakal melengkung ke bawah (karena gravitasi).
+## Fitur Toggle
+1. **Model Cloud / Local**: 
+   - **Cloud** mengambil model AI dari server Google (butuh internet).
+   - **Local** mengambil dari folder `models/hand_landmarker.task` di HP lu (100% offline).
+2. **Cam Depan / Belakang**: Ganti sumber kamera (jika HP memiliki kamera ganda).
+3. **Mode: Rope / Balok 3D**: Ganti visual interaktif.
 
-## Teknologi
-- **Verlet Integration**: Simulasi rantai fisik tali yang di-pin di dua titik ujung (landmark 8 dari masing-masing tangan).
-- **Gravitasi & Friction**: Memberikan efek jatuh bebas dan redaman agar pergerakan
+## Cara Pakai Mode Local (Offline)
+1. Download file model dari [Google Storage](https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task).
+2. Buat folder `models` di dalam folder aplikasi.
+3. Simpan file tersebut sebagai `models/hand_landmarker.task`.
+4. Klik tombol **Model: Cloud** di aplikasi sampai berubah jadi **Model: Local**.
+
+## Struktur Folder
+```
+
+hand-gesture-app/
+├── index.html
+├── css/style.css
+├── js/
+│   ├── main.js
+│   ├── config.js
+│   ├── block.js
+│   ├── rope.js
+│   └── (modul lain)
+└── models/ (opsional, untuk local model)
+
+```
+
